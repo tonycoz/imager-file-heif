@@ -8,9 +8,63 @@
 
 #define my_size_t_max (~(size_t)0)
 
-#if 0
 static i_img *
-get_image(WebPMux *mux, int n, int *error) {
+get_image(struct heif_context *ctx, heif_item_id id) {
+#if 1
+  i_img *img = NULL;
+  struct heif_error err;
+  struct heif_image_handle *img_handle = NULL;
+  struct heif_image *him = NULL;
+  int stride;
+  const uint8_t *data;
+  int width, height, channels;
+  i_img_dim y;
+
+  err = heif_context_get_image_handle(ctx, id, &img_handle);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to get handle");
+    goto fail;
+  }
+
+  width = heif_image_handle_get_width(img_handle);
+  height = heif_image_handle_get_height(img_handle);
+  /* FIXME alpha */
+  if (heif_image_handle_has_alpha_channel(img_handle)) {
+    i_push_error(0, "no alpha yet");
+    goto fail;
+  }
+  channels = 3; /* FIXME grayscale */
+
+  img = i_img_8_new(width, height, channels);
+  if (!img) {
+    i_push_error(0, "failed to create image");
+    goto fail;
+  }
+
+  err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
+			  heif_chroma_interleaved_24bit, NULL);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to decode");
+    goto fail;
+  }
+
+  data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
+
+  for (y = 0; y < height; ++y) {
+    const uint8_t *p = data + stride * y;
+    i_psamp(img, 0, width, y, p, 0, channels);
+  }
+
+  heif_image_handle_release(img_handle);
+
+  return img;
+ fail:
+  if (img)
+    i_img_destroy(img);
+  if (img_handle)
+    heif_image_handle_release(img_handle);
+  return NULL;
+#else
   WebPMuxFrameInfo f;
   WebPMuxError err;
   WebPBitstreamFeatures feat;
@@ -121,9 +175,8 @@ get_image(WebPMux *mux, int n, int *error) {
   i_tags_set(&img->tags, "i_format", "webp", 4);
   
   return img;
-}
-
 #endif
+}
 
 typedef struct {
   io_glue *ig;
@@ -167,12 +220,6 @@ i_readheif(io_glue *ig, int page) {
   int total_top_level = 0;
   int id_count;
   heif_item_id *img_ids = NULL;
-  struct heif_image_handle *img_handle = NULL;
-  struct heif_image *him = NULL;
-  int stride;
-  const uint8_t *data;
-  int width, height, channels;
-  i_img_dim y;
   size_t ids_size;
 
   i_clear_error();
@@ -226,49 +273,15 @@ i_readheif(io_glue *ig, int page) {
     goto fail;
   }
 
-  err = heif_context_get_image_handle(ctx, img_ids[page], &img_handle);
-  if (err.code != heif_error_Ok) {
-    i_push_error(0, "failed to get handle");
+  img = get_image(ctx, img_ids[page]);
+  if (!img)
     goto fail;
-  }
 
-  width = heif_image_handle_get_width(img_handle);
-  height = heif_image_handle_get_height(img_handle);
-  /* FIXME alpha */
-  if (heif_image_handle_has_alpha_channel(img_handle)) {
-    i_push_error(0, "no alpha yet");
-    goto fail;
-  }
-  channels = 3; /* FIXME grayscale */
-
-  img = i_img_8_new(width, height, channels);
-  if (!img) {
-    i_push_error(0, "failed to create image");
-    goto fail;
-  }
-
-  err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
-			  heif_chroma_interleaved_24bit, NULL);
-  if (err.code != heif_error_Ok) {
-    i_push_error(0, "failed to decode");
-    goto fail;
-  }
-
-  data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
-
-  for (y = 0; y < height; ++y) {
-    const uint8_t *p = data + stride * y;
-    i_psamp(img, 0, width, y, p, 0, channels);
-  }
-
-  heif_image_handle_release(img_handle);
   myfree(img_ids);
   heif_context_free(ctx);
   return img;
 
  fail:
-  if (img_handle)
-    heif_image_handle_release(img_handle);
   myfree(img_ids);
   heif_context_free(ctx);
 
