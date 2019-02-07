@@ -414,7 +414,7 @@ i_heif_libversion(void) {
   if (!*buf) {
     unsigned int ver = heif_get_version_number();
     sprintf(buf, "%d.%d.%d (%x)",
-	    ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF);
+	    ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, (unsigned)ver);
   }
   return buf;
 }
