@@ -123,45 +123,150 @@ get_image(WebPMux *mux, int n, int *error) {
 
 #endif
 
+typedef struct {
+  io_glue *ig;
+  int64_t size;
+} my_reader_data;
+
+static int
+my_read(void *data, size_t size, void *userdata) {
+  my_reader_data *rdp = userdata;
+  return i_io_read(rdp->ig, data, size) == size ? 0 : -1;
+}
+
+static int
+my_seek(int64_t position, void *userdata) {
+  my_reader_data *rdp = userdata;
+  return i_io_seek(rdp->ig, position, SEEK_SET) == position ? 0 : -1;
+}
+
+static int64_t
+my_get_position(void *userdata) {
+  my_reader_data *rdp = userdata;
+  return i_io_seek(rdp->ig, 0, SEEK_CUR);
+}
+
+static enum heif_reader_grow_status
+my_wait_for_file_size(int64_t target_size, void* userdata) {
+  my_reader_data *rdp = userdata;
+  return rdp->size >= target_size
+    ? heif_reader_grow_status_size_reached
+    : heif_reader_grow_status_size_beyond_eof;
+}
+
 i_img *
 i_readheif(io_glue *ig, int page) {
-#if 1
-  return NULL;
-#else
-  WebPMux *mux;
-  i_img *img;
-  unsigned char *mdata;
-  WebPData data;
-  int n;
-  int imgs_alloc = 0;
-  int error;
+  i_img *img = NULL;
+  struct heif_context *ctx = heif_context_alloc();
+  struct heif_error err;
+  struct heif_reader reader;
+  struct heif_reading_options;
+  my_reader_data rd;
+  int total_top_level = 0;
+  int id_count;
+  heif_item_id *img_ids = NULL;
+  struct heif_image_handle *img_handle = NULL;
+  struct heif_image *him = NULL;
+  int stride;
+  const uint8_t *data;
+  int width, height, channels;
+  i_img_dim y;
 
   i_clear_error();
+  if (!ctx) {
+    i_push_error(0, "failed to allocate heif context");
+    return NULL;
+  }
+
   if (page < 0) {
     i_push_error(0, "page must be non-negative");
-    return NULL;
+    goto fail;
   }
 
-  data.bytes = mdata = slurpio(ig, &data.size);
-  
-  mux = WebPMuxCreate(&data, 0);
+  rd.ig = ig;
+  rd.size = i_io_seek(ig, 0, SEEK_END);
+  if (rd.size < 0) {
+    i_push_error(0, "failed to get file size");
+    goto fail;
+  }
+  i_io_seek(ig, 0, SEEK_SET);
 
-  if (!mux) {
-    myfree(mdata);
-    i_push_error(0, "Cannot create mux object.  Bad file?");
-    return NULL;
+  reader.reader_api_version = 1;
+  reader.get_position = my_get_position;
+  reader.read = my_read;
+  reader.seek = my_seek;
+  reader.wait_for_file_size = my_wait_for_file_size;
+  err = heif_context_read_from_reader(ctx, &reader, &rd, NULL);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to read");
+    goto fail;
   }
 
-  img = get_image(mux, page+1, &error);
-  if (img == NULL && !error) {
-    i_push_error(0, "No such image");
+  /* for now we're working with "top-level" images, which means we'll be skipping
+     dependent images (like thumbs).
+  */
+  total_top_level = heif_context_get_number_of_top_level_images(ctx);
+
+  if (page >= total_top_level) {
+    i_push_errorf(0, "requested page %d, but max is %d", page, total_top_level-1);
+    goto fail;
   }
 
-  WebPMuxDelete(mux);
-  myfree(mdata);
-  
+  /* FIXME overflow check */
+  img_ids = mymalloc(sizeof(*img_ids) * total_top_level);
+  id_count = heif_context_get_list_of_top_level_image_IDs(ctx, img_ids, total_top_level);
+  if (id_count != total_top_level) {
+    i_push_error(0, "number of ids doesn't match image count");
+    goto fail;
+  }
+
+  err = heif_context_get_image_handle(ctx, img_ids[page], &img_handle);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to get handle");
+    goto fail;
+  }
+
+  width = heif_image_handle_get_width(img_handle);
+  height = heif_image_handle_get_height(img_handle);
+  /* FIXME alpha */
+  if (heif_image_handle_has_alpha_channel(img_handle)) {
+    i_push_error(0, "no alpha yet");
+    goto fail;
+  }
+  channels = 3; /* FIXME grayscale */
+
+  img = i_img_8_new(width, height, channels);
+  if (!img) {
+    i_push_error(0, "failed to create image");
+    goto fail;
+  }
+
+  err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
+			  heif_chroma_interleaved_24bit, NULL);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to decode");
+    goto fail;
+  }
+
+  data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
+
+  for (y = 0; y < height; ++y) {
+    const uint8_t *p = data + stride * y;
+    i_psamp(img, 0, width, y, p, 0, channels);
+  }
+
+  heif_image_handle_release(img_handle);
+  myfree(img_ids);
+  heif_context_free(ctx);
   return img;
-#endif
+
+ fail:
+  if (img_handle)
+    heif_image_handle_release(img_handle);
+  myfree(img_ids);
+  heif_context_free(ctx);
+
+  return NULL;
 }
 
 i_img **
@@ -325,6 +430,11 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   int i;
 
   i_clear_error();
+
+  if (!ctx) {
+    i_push_error(0, "failed to allocate heif context");
+    return 0;
+  }
 
   writer.writer_api_version = 1; /* FIXME: named constant? */
   writer.write = write_heif;
