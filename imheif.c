@@ -300,147 +300,112 @@ frame_webp(i_img *im, size_t *sz) {
 
 #endif
 
+static struct heif_error
+write_heif(struct heif_context *ctx, const void *data,
+	   size_t size, void *userdata) {
+  io_glue *ig = (io_glue *)userdata;
+  struct heif_error err = { heif_error_Ok };
+
+  if (i_io_write(ig, data, size) != size) {
+    i_push_error(errno, "failed to write");
+    err.code = heif_error_Encoding_error;
+    err.subcode = heif_suberror_Cannot_write_output_data;
+    err.message = "Cannot write";
+  }
+
+  return err;
+}
+
 undef_int
 i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
-#if 1
-  return 0;
-#else
-  WebPMux *mux;
+  struct heif_context *ctx = heif_context_alloc();
+  struct heif_encoder *encoder = NULL;
+  struct heif_error err;
+  struct heif_writer writer;
   int i;
-  WebPData outd;
-  WebPMuxError err;
 
-  if (count == 0) {
-    i_push_error(0, "must be at least one image");
-    return 0;
+  i_clear_error();
+
+  writer.writer_api_version = 1; /* FIXME: named constant? */
+  writer.write = write_heif;
+
+  err = heif_context_get_encoder_for_format(ctx, heif_compression_HEVC, &encoder);
+  if (err.code != heif_error_Ok) {
+    i_push_errorf(0, "heif error %d", (int)err.code);
+    goto fail;
   }
+
+  heif_encoder_set_lossy_quality(encoder, 80);
 
   for (i = 0; i < count; ++i) {
-    if (imgs[i]->xsize > 16383) {
-      i_push_error(0, "maximum webp image width is 16383");
-      return 0;
-    }
-    if (imgs[i]->ysize > 16383) {
-      i_push_error(0, "maximum webp image height is 16383");
-      return 0;
-    }
-  }
-
-  mux = WebPMuxNew();
-
-  if (!mux) {
-    i_push_error(0, "Cannot create mux object.  ABI mismatch?");
-    return 0;
-  }
-
-  if (count == 1) {
-    WebPData d;
-    d.bytes = frame_webp(imgs[0], &d.size);
-    if (!d.bytes)
-      goto fail;
-
-    if ((err = WebPMuxSetImage(mux, &d, 1)) != WEBP_MUX_OK) {
-      i_push_errorf(err, "failed to set image (%d)", (int)err);
-      WebPDataClear(&d);
+    i_img *im = imgs[i];
+    int ch;
+    struct heif_image *him = NULL;
+    
+    if (im->channels != 3) {
+      i_push_error(0, "only 3 channel images for now");
       goto fail;
     }
-    WebPDataClear(&d);
-  }
-  else {
-    WebPMuxFrameInfo f;
-    WebPMuxAnimParams params = { 0xFFFFFFFF, 0 };
-    union {
-      i_color c;
-      uint32_t n;
-    } color;
-
-    if (!i_tags_get_int(&imgs[0]->tags, "webp_loop_count", 0,
-			&params.loop_count)) {
-      params.loop_count = 0;
+    err = heif_image_create(im->xsize, im->ysize, heif_colorspace_RGB, heif_chroma_interleaved_RGB, &him);
+    if (err.code != heif_error_Ok) {
+      i_push_errorf(0, "heif error %d", (int)err.code);
+      goto fail;
     }
-    if (i_tags_get_color(&imgs[0]->tags, "webp_background", 0,
-			&color.c)) {
-      params.bgcolor = color.n;
-    }
-    f.id = WEBP_CHUNK_ANMF;
-    for (i = 0; i < count; ++i) {
-      WebPData d;
-      char buf[80];
-
-      if (!i_tags_get_int(&imgs[i]->tags, "webp_left", 0, &f.x_offset))
-	f.x_offset = 0;
-      if (!i_tags_get_int(&imgs[i]->tags, "webp_top", 0, &f.y_offset))
-	f.y_offset = 0;
-      if (!i_tags_get_int(&imgs[i]->tags, "webp_duration", 0, &f.duration))
-	f.duration = 100;
-      if (i_tags_get_string(&imgs[i]->tags, "webp_dispose", 0, buf, sizeof(buf))) {
-	if (strcmp(buf, "none") == 0) {
-	  f.dispose_method = WEBP_MUX_DISPOSE_NONE;
-	}
-	else if (strcmp(buf, "background") == 0) {
-	  f.dispose_method = WEBP_MUX_DISPOSE_BACKGROUND;
-	}
-	else {
-	  i_push_error(0, "invalid webp_dispose, must be 'none' or 'background'");
-	  goto fail;
-	}
-      }
-      else {
-	f.dispose_method = WEBP_MUX_DISPOSE_BACKGROUND;
-      }
-      
-      if (i_tags_get_string(&imgs[i]->tags, "webp_blend", 0, buf, sizeof(buf))) {
-	if (strcmp(buf, "alpha") == 0) {
-	  f.blend_method = WEBP_MUX_BLEND;
-	}
-	else if (strcmp(buf, "none") == 0) {
-	  f.blend_method = WEBP_MUX_NO_BLEND;
-	}
-	else {
-	  i_push_error(0, "invalid webp_blend, must be 'none' or 'alpha'");
-	  goto fail;
-	}
-      }
-      else {
-	f.blend_method = WEBP_MUX_BLEND;
-      }
-      
-      f.bitstream.bytes = frame_webp(imgs[i], &f.bitstream.size);
-      if (!f.bitstream.bytes)
+    /* FIXME: grayscale */
+    /* FIXME: alpha channel */
+    /* FIXME: compression level */
+    /* FIXME: "lossless" (rgb->YCbCr will lose some data) */
+    /* FIXME: metadata */
+    /* FIXME: leaks? */
+    {
+      i_img_dim y;
+      int stride;
+      uint8_t *p;
+      int samp_chan;
+      struct heif_image_handle *him_h;
+      struct heif_encoding_options *options = NULL;
+      err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, 24);
+      if (err.code != heif_error_Ok) {
+	i_push_error(0, "failed to add plane");
+      failimage:
+	heif_image_release(him);
 	goto fail;
-
-      WebPMuxPushFrame(mux, &f, 1);
-      WebPDataClear(&f.bitstream);
+      }
+      p = heif_image_get_plane(him, heif_channel_interleaved, &stride);
+      for (y = 0; y < im->ysize; ++y) {
+	uint8_t *pp = p + stride * y;
+	i_gsamp(im, 0, im->xsize, y, pp, NULL, 3);
+      }
+      options = heif_encoding_options_alloc(); 
+      err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
+      if (err.code != heif_error_Ok) {
+	i_push_error(0, "fail to encode");
+	goto failimage;
+      }
+      heif_encoding_options_free(options);
     }
-    err = WebPMuxSetAnimationParams(mux, &params);
-    if (err != WEBP_MUX_OK) {
-      i_push_errorf((int)err, "failed to set animation params (%d)", (int)err);
-      goto fail;
-    }
   }
 
-  if ((err = WebPMuxAssemble(mux, &outd)) != WEBP_MUX_OK) {
-    i_push_errorf((int)err, "failed to assemble %d", (int)err);
+  err = heif_context_write(ctx, &writer, (void*)ig);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to write");
     goto fail;
   }
-
-  if (i_io_write(ig, outd.bytes, outd.size) != outd.size) {
-    i_push_error(errno, "failed to write");
-    WebPDataClear(&outd);
+  if (i_io_close(ig)) {
+    i_push_error(0, "failed to close");
     goto fail;
   }
-  WebPDataClear(&outd);
-
-  if (i_io_close(ig))
-    goto fail;
-
-  WebPMuxDelete(mux);
+  
+  heif_encoder_release(encoder);
+  heif_context_free(ctx);
   return 1;
-
+  
  fail:
-  WebPMuxDelete(mux);
+  if (encoder)
+    heif_encoder_release(encoder);
+  heif_context_free(ctx);
+
   return 0;
-#endif
 }
 
 char const *
