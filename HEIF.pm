@@ -7,7 +7,7 @@ BEGIN {
   $VERSION = "0.001";
 
   require XSLoader;
-  XSLoader::load('Imager::File::WEBP', $VERSION);
+  XSLoader::load('Imager::File::HEIF', $VERSION);
 }
 
 Imager->register_reader
