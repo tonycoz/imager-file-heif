@@ -6,6 +6,8 @@
 #define START_SLURP_SIZE 8192
 #define next_slurp_size(old) ((size_t)((old) * 3 / 2) + 10)
 
+#define my_size_t_max (~(size_t)0)
+
 #if 0
 static i_img *
 get_image(WebPMux *mux, int n, int *error) {
@@ -171,6 +173,7 @@ i_readheif(io_glue *ig, int page) {
   const uint8_t *data;
   int width, height, channels;
   i_img_dim y;
+  size_t ids_size;
 
   i_clear_error();
   if (!ctx) {
@@ -212,8 +215,11 @@ i_readheif(io_glue *ig, int page) {
     goto fail;
   }
 
-  /* FIXME overflow check */
-  img_ids = mymalloc(sizeof(*img_ids) * total_top_level);
+  if (total_top_level > my_size_t_max / sizeof(*img_ids)) {
+    i_push_error(0, "calculation overflow for image id allocation");
+    goto fail;
+  }
+  img_ids = mymalloc(sizeof(*img_ids) * (size_t)total_top_level);
   id_count = heif_context_get_list_of_top_level_image_IDs(ctx, img_ids, total_top_level);
   if (id_count != total_top_level) {
     i_push_error(0, "number of ids doesn't match image count");
