@@ -97,6 +97,9 @@ Imager::File::HEIF - read and write HEIF files
 
 Implements .heif file support for Imager.
 
+Due to the limitations of C<heif> (or possibly C<libheif>) grayscale
+images are written as RGB images.
+
 =head1 INSTALLATION
 
 To install Imager::File::HEIF you need Imager installed and you need
@@ -104,7 +107,20 @@ libheif and libde265.
 
 =head1 TODO
 
-Everything.
+=over
+
+=item *
+
+can we hack grayscale by setting the chroma bits to zero?  The sample
+code produces a chroma bits 8 image when given a grayscale input PNG,
+which is why I suspect the format doesn't support gray, but they might
+be a deficiency in the tool.
+
+=item *
+
+Everything else.
+
+=back
 
 =head1 AUTHOR
 

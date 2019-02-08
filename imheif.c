@@ -19,6 +19,8 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   const uint8_t *data;
   int width, height, channels;
   i_img_dim y;
+  enum heif_colorspace cs;
+  enum heif_chroma chroma = heif_chroma_interleaved_RGB;
 
   err = heif_context_get_image_handle(ctx, id, &img_handle);
   if (err.code != heif_error_Ok) {
@@ -26,14 +28,19 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     goto fail;
   }
 
+  /* libheif or HEIF itself might not support grayscale images.
+     The chroma and colorspace constants appears to be for defining
+     (en|de)coding targets/sources, so you can supply grey scale to the
+     API, but it ends up as YCbCr in any case.
+  */
   width = heif_image_handle_get_width(img_handle);
   height = heif_image_handle_get_height(img_handle);
   /* FIXME alpha */
+  channels = 3;
   if (heif_image_handle_has_alpha_channel(img_handle)) {
-    i_push_error(0, "no alpha yet");
-    goto fail;
+    ++channels;
+    chroma = heif_chroma_interleaved_RGBA;
   }
-  channels = 3; /* FIXME grayscale */
 
   img = i_img_8_new(width, height, channels);
   if (!img) {
@@ -42,7 +49,7 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   }
 
   err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
-			  heif_chroma_interleaved_24bit, NULL);
+			  chroma, NULL);
   if (err.code != heif_error_Ok) {
     i_push_error(0, "failed to decode");
     goto fail;
