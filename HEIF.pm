@@ -98,12 +98,17 @@ Imager::File::HEIF - read and write HEIF files
 Implements .heif file support for Imager.
 
 Due to the limitations of C<heif> (or possibly C<libheif>) grayscale
-images are written as RGB images.
+images are written as RGB images. FIXME: they're currently rejected.
+
+libx265 will
+L<reject|https://mailman.videolan.org/pipermail/x265-devel/2018-May/012068.html>
+attempts to write images smaller than 64x64 pixels.  Since this may
+change in the future I haven't tried to prevent that in Imager itself.
 
 =head1 INSTALLATION
 
 To install Imager::File::HEIF you need Imager installed and you need
-libheif and libde265.
+libheif, libde265 and libx265 and their development files.
 
 =head1 TODO
 
@@ -115,6 +120,41 @@ can we hack grayscale by setting the chroma bits to zero?  The sample
 code produces a chroma bits 8 image when given a grayscale input PNG,
 which is why I suspect the format doesn't support gray, but they might
 be a deficiency in the tool.
+
+=item *
+
+10-bit/sample and 12-bit/sample images.
+
+=item *
+
+writing alpha
+
+=item *
+
+writing grayscale (probably as RGB)
+
+=item *
+
+reading multiple images
+
+=item *
+
+reading metadata (any to read?) I think pixel ratios are available.
+
+=item *
+
+writing metadata.  We don't seem to have the animation metadata that
+webp does.
+
+=item *
+
+reading sub-image data?  we can probably skip thumbs (or provide an
+option to read the thumb rather than the main image), but are there
+other images to read?  Low priority.
+
+=item *
+
+writing sub-image data?  Very low priority.
 
 =item *
 
