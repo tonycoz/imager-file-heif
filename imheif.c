@@ -10,7 +10,6 @@
 
 static i_img *
 get_image(struct heif_context *ctx, heif_item_id id) {
-#if 1
   i_img *img = NULL;
   struct heif_error err;
   struct heif_image_handle *img_handle = NULL;
@@ -64,6 +63,8 @@ get_image(struct heif_context *ctx, heif_item_id id) {
 
   heif_image_handle_release(img_handle);
 
+  i_tags_set(&img->tags, "i_format", "heif", 4);
+
   return img;
  fail:
   if (img)
@@ -71,118 +72,6 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   if (img_handle)
     heif_image_handle_release(img_handle);
   return NULL;
-#else
-  WebPMuxFrameInfo f;
-  WebPMuxError err;
-  WebPBitstreamFeatures feat;
-  VP8StatusCode code;
-  i_img *img;
-  WebPMuxAnimParams anim;
-#if IMAGER_API_VERSION * 0x100 + IMAGER_API_LEVEL >= 0x50A
-  WebPData exif;
-#endif
-
-  *error = 0;
-  if ((err = WebPMuxGetFrame(mux, n, &f)) != WEBP_MUX_OK) {
-    if (err != WEBP_MUX_NOT_FOUND) {
-      i_push_errorf(err, "failed to read %d", (int)err);
-      *error = 1;
-    }
-    return NULL;
-  }
-
-  if ((code = WebPGetFeatures(f.bitstream.bytes, f.bitstream.size, &feat))
-      != VP8_STATUS_OK) {
-    WebPDataClear(&f.bitstream);
-    i_push_errorf((int)code, "failed to get features (%d)", (int)code);
-    return NULL;
-  }
-
-  if (!i_int_check_image_file_limits(feat.width, feat.height, feat.has_alpha ? 4 : 3, 1)) {
-    *error = 1;
-    WebPDataClear(&f.bitstream);
-    return NULL;
-  }
-
-  if (feat.has_alpha) {
-    int width, height;
-    int y;
-    uint8_t *bmp = WebPDecodeRGBA(f.bitstream.bytes, f.bitstream.size,
-				 &width, &height);
-    uint8_t *p = bmp;
-    if (!bmp) {
-      WebPDataClear(&f.bitstream);
-      i_push_error(0, "failed to decode");
-      *error = 1;
-      return NULL;
-    }
-    img = i_img_8_new(width, height, 4);
-    for (y = 0; y < height; ++y) {
-      i_psamp(img, 0, width, y, p, NULL, 4);
-      p += width * 4;
-    }
-    WebPFree(bmp);
-  }
-  else {
-    int width, height;
-    int y;
-    uint8_t *bmp = WebPDecodeRGB(f.bitstream.bytes, f.bitstream.size,
-				 &width, &height);
-    uint8_t *p = bmp;
-    if (!bmp) {
-      WebPDataClear(&f.bitstream);
-      i_push_error(0, "failed to decode");
-      *error = 1;
-      return NULL;
-    }
-    img = i_img_8_new(width, height, 3);
-    for (y = 0; y < height; ++y) {
-      i_psamp(img, 0, width, y, p, NULL, 3);
-      p += width * 3;
-    }
-    WebPFree(bmp);
-  }
-
-  if (find_fourcc(&f.bitstream, "VP8L", NULL)) {
-    i_tags_set(&img->tags, "webp_mode", "lossless", 8);
-  }
-  else {
-    i_tags_set(&img->tags, "webp_mode", "lossy", 5);
-  }
-  i_tags_setn(&img->tags, "webp_left", f.x_offset);
-  i_tags_setn(&img->tags, "webp_top", f.y_offset);
-  i_tags_setn(&img->tags, "webp_duration", f.duration);
-  if (f.dispose_method == WEBP_MUX_DISPOSE_NONE)
-    i_tags_set(&img->tags, "webp_dispose", "none", -1);
-  else
-    i_tags_set(&img->tags, "webp_dispose", "background", -1);
-  if (f.blend_method == WEBP_MUX_BLEND)
-    i_tags_set(&img->tags, "webp_blend", "alpha", -1);
-  else
-    i_tags_set(&img->tags, "webp_blend", "none", -1);
-
-  if (WebPMuxGetAnimationParams(mux, &anim) == WEBP_MUX_OK) {
-    union color_u32 {
-      i_color c;
-      uint32_t n;
-    } color;
-    i_tags_setn(&img->tags, "webp_loop_count", anim.loop_count);
-    color.n = anim.bgcolor;
-    i_tags_set_color(&img->tags, "webp_background", 0, &color.c);
-  }
-
-#if IMAGER_API_VERSION * 0x100 + IMAGER_API_LEVEL >= 0x50A
-  if (WebPMuxGetChunk(mux, "EXIF", &exif) == WEBP_MUX_OK) {
-    im_decode_exif(exif.bytes, exif.size);
-  }
-#endif
-  
-  WebPDataClear(&f.bitstream);
-
-  i_tags_set(&img->tags, "i_format", "webp", 4);
-  
-  return img;
-#endif
 }
 
 typedef struct {
