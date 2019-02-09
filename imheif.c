@@ -186,62 +186,89 @@ i_readheif(io_glue *ig, int page) {
 
 i_img **
 i_readheif_multi(io_glue *ig, int *count) {
-#if 1
-  return NULL;
-#else
-  WebPMux *mux;
-  i_img *img;
-  unsigned char *mdata;
-  WebPData data;
-  int n;
+  struct heif_context *ctx = heif_context_alloc();
+  struct heif_error err;
+  struct heif_reader reader;
+  struct heif_reading_options;
+  my_reader_data rd;
+  int total_top_level = 0;
+  int id_count;
+  heif_item_id *img_ids = NULL;
+  size_t ids_size;
   i_img **result = NULL;
-  int imgs_alloc = 0;
-  int error;
+  int img_count = 0;
+  int i;
 
-  data.bytes = mdata = slurpio(ig, &data.size);
-  
-  mux = WebPMuxCreate(&data, 0);
-
-  if (!mux) {
-    myfree(mdata);
-    i_push_error(0, "Cannot create mux object.  ABI mismatch?");
+  i_clear_error();
+  if (!ctx) {
+    i_push_error(0, "failed to allocate heif context");
     return NULL;
   }
 
-  n = 1;
-  img = get_image(mux, n++, &error);
-  *count = 0;
-  while (img) {
-    if (*count == imgs_alloc) {
-      imgs_alloc += 10;
-      result = myrealloc(result, imgs_alloc * sizeof(i_img *));
-    }
-    result[(*count)++] = img;
-    img = get_image(mux, n++, &error);
-  }
-
-  if (error) {
-    while (*count) {
-      --*count;
-      i_img_destroy(result[*count]);
-    }
-    myfree(result);
+  rd.ig = ig;
+  rd.size = i_io_seek(ig, 0, SEEK_END);
+  if (rd.size < 0) {
+    i_push_error(0, "failed to get file size");
     goto fail;
   }
-  else if (*count == 0) {
-    i_push_error(0, "No images found");
+  i_io_seek(ig, 0, SEEK_SET);
+
+  reader.reader_api_version = 1;
+  reader.get_position = my_get_position;
+  reader.read = my_read;
+  reader.seek = my_seek;
+  reader.wait_for_file_size = my_wait_for_file_size;
+  err = heif_context_read_from_reader(ctx, &reader, &rd, NULL);
+  if (err.code != heif_error_Ok) {
+    i_push_error(0, "failed to read");
+    goto fail;
   }
 
-  WebPMuxDelete(mux);
-  myfree(mdata);
-  
-  return result;
+  /* for now we're working with "top-level" images, which means we'll be skipping
+     dependent images (like thumbs).
+  */
+  total_top_level = heif_context_get_number_of_top_level_images(ctx);
 
+  if (total_top_level > my_size_t_max / sizeof(*img_ids)) {
+    i_push_error(0, "calculation overflow for image id allocation");
+    goto fail;
+  }
+  img_ids = mymalloc(sizeof(*img_ids) * (size_t)total_top_level);
+  id_count = heif_context_get_list_of_top_level_image_IDs(ctx, img_ids, total_top_level);
+  if (id_count != total_top_level) {
+    i_push_error(0, "number of ids doesn't match image count");
+    goto fail;
+  }
+
+  fprintf(stderr, "total images %d\n", total_top_level);
+  result = mymalloc(sizeof(i_img *) * total_top_level);
+  for (i = 0; i < total_top_level; ++i) {
+    i_img *im = get_image(ctx, img_ids[i]);
+    if (im) {
+      result[img_count++] = im;
+    }
+    else {
+      goto fail;
+    }
+  }
+
+  *count = img_count;
+
+  myfree(img_ids);
+  heif_context_free(ctx);
+  return result;
  fail:
-  WebPMuxDelete(mux);
-  myfree(mdata);
+  if (result) {
+    int i;
+    for (i = 0; i < img_count; ++i) {
+      i_img_destroy(result[i]);
+    }
+    myfree(result);
+  }
+  myfree(img_ids);
+  heif_context_free(ctx);
+
   return NULL;
-#endif
 }
 
 undef_int
@@ -250,75 +277,6 @@ i_writeheif(i_img *im, io_glue *ig) {
 }
 
 static const int gray_chans[4] = { 0, 0, 0, 1 };
-
-#if 0
-
-static unsigned char *
-frame_raw(i_img *im, int *out_chans) {
-  unsigned char *data, *p;
-  i_img_dim y;
-  const int *chans = im->channels < 3 ? gray_chans : NULL;
-  *out_chans = (im->channels & 1) ? 3 : 4;
-  data = mymalloc(im->xsize * im->ysize * *out_chans);
-  p = data;
-  for (y = 0; y < im->ysize; ++y) {
-    i_gsamp(im, 0, im->xsize, y, p, chans, *out_chans);
-    p += *out_chans * im->xsize;
-  }
-
-  return data;
-}
-
-static unsigned char *
-frame_webp(i_img *im, size_t *sz) {
-  int chans;
-  unsigned char *raw = frame_raw(im, &chans);
-  uint8_t *webp;
-  size_t webp_size;
-  char webp_mode[80];
-  int lossy = 1;
-
-  if (i_tags_get_string(&im->tags, "webp_mode", 0, webp_mode, sizeof(webp_mode))) {
-    if (strcmp(webp_mode, "lossless") == 0) {
-      lossy = 0;
-    }
-    else if (strcmp(webp_mode, "lossy") != 0) {
-      i_push_error(0, "webp_mode must be 'lossy' or 'lossless'");
-      return NULL;
-    }
-  }
-  if (lossy) {
-    double quality;
-    if (i_tags_get_float(&im->tags, "webp_quality", 0, &quality)) {
-      if (quality < 0 || quality > 100) {
-	i_push_error(0, "webp_quality must be in the range 0 to 100 inclusive");
-	return NULL;
-      }
-    }
-    else {
-      quality = 80;
-    }
-    if (chans == 4) {
-      webp_size = WebPEncodeRGBA(raw, im->xsize, im->ysize, im->xsize * chans, quality, &webp);
-    }
-    else {
-      webp_size = WebPEncodeRGB(raw, im->xsize, im->ysize, im->xsize * chans, quality, &webp);
-    }
-  }
-  else {
-    if (chans == 4) {
-      webp_size = WebPEncodeLosslessRGBA(raw, im->xsize, im->ysize, im->xsize * chans, &webp);
-    }
-    else {
-      webp_size = WebPEncodeLosslessRGB(raw, im->xsize, im->ysize, im->xsize * chans, &webp);
-    }
-  }
-  *sz = webp_size;
-  myfree(raw);
-  return webp;
-}
-
-#endif
 
 static struct heif_error
 write_heif(struct heif_context *ctx, const void *data,

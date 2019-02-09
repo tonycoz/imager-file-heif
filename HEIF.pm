@@ -165,15 +165,13 @@ which is why I suspect the format doesn't support gray, but they might
 be a deficiency in the tool.  I tried just adding a Y channel for
 grayscale, but that simply made the encoding step crash.
 
+The heif_enc sample creates a YCbCr image and only adds a Y plane.
+
 =item *
 
 10-bit/sample and 12-bit/sample images.  Based on
 L<https://github.com/strukturag/libheif/issues/40> this might not be
 supported completely yet.
-
-=item *
-
-reading multiple images
 
 =item *
 

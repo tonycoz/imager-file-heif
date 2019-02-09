@@ -68,4 +68,28 @@ SKIP:
   is($res->getchannels, $cmp->getchannels, "check channels");
   is_image_similar($res, $cmp, 10_000, "check image matches roughly");
 }
+
+SKIP:
+{
+  my @cmp;
+  push @cmp, test_image();
+  push @cmp, test_image()->convert(preset => "gray");
+  @cmp = ( (@cmp) x 3 );
+
+  my $data;
+  ok(Imager->write_multi({ type => "heif", data => \$data }, @cmp),
+     "write multiple images")
+    or diag(Imager->errstr);
+  ok(length $data, "it wrote something");
+
+  my @res = Imager->read_multi(type => "heif", data => \$data)
+    or do { diag "couldn't read:" . Imager->errstr; skip "couldn't read", 1 };
+  is(@res, @cmp, "got the right number of images");
+  for my $i ( 0 .. $#cmp) {
+    my $cmp = $cmp[$i]->getchannels() == 3 ? $cmp[$i] : $cmp[$i]->convert(preset => "rgb");
+    is_image_similar($res[$i], $cmp, 8_000_000,
+		     "check image $i");
+  }
+}
+
 done_testing();
