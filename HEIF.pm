@@ -110,19 +110,48 @@ Imager::File::HEIF - read and write HEIF files
 
 Implements .heif file support for Imager.
 
+=head1 LIMITATIONS
+
+=over
+
+=item *
+
 Due to the limitations of C<heif> (or possibly C<libheif>) grayscale
 images are written as RGB images.
-images are written as RGB images. FIXME: they're currently rejected.
+
+=item *
 
 libx265 will
 L<reject|https://mailman.videolan.org/pipermail/x265-devel/2018-May/012068.html>
 attempts to write images smaller than 64x64 pixels.  Since this may
 change in the future I haven't tried to prevent that in Imager itself.
 
+=item *
+
+Imager's images are always RGB or grayscale images, and libheif will
+re-encode the RGB data Imager provides to YCbCr for output.  This
+inevitably loses some information, and I've seen one
+L<complaint|https://github.com/strukturag/libheif/issues/40#issuecomment-428598563>
+that libheif's conversion isn't as good as it could be.  Grayscale
+images (which are still passed through as RGB) seem to be supported
+with very good quality.  YMMV.
+
+=back
+
+=head1 PATENTS
+
+The h.265 compression libheif uses is covered by patents, if you use
+this code for commercial purposes you may need to license those
+patents.
+
 =head1 INSTALLATION
 
 To install Imager::File::HEIF you need Imager installed and you need
 libheif, libde265 and libx265 and their development files.
+
+Development of Imager::File::HEIF was done with the latest development
+versions of libheif and libde265 at the time ie from git, older
+releases might fail to build or run.
 
 =head1 TODO
 
@@ -133,19 +162,18 @@ libheif, libde265 and libx265 and their development files.
 can we hack grayscale by setting the chroma bits to zero?  The sample
 code produces a chroma bits 8 image when given a grayscale input PNG,
 which is why I suspect the format doesn't support gray, but they might
-be a deficiency in the tool.
+be a deficiency in the tool.  I tried just adding a Y channel for
+grayscale, but that simply made the encoding step crash.
 
 =item *
 
-10-bit/sample and 12-bit/sample images.
+10-bit/sample and 12-bit/sample images.  Based on
+L<https://github.com/strukturag/libheif/issues/40> this might not be
+supported completely yet.
 
 =item *
 
 writing alpha
-
-=item *
-
-writing grayscale (probably as RGB)
 
 =item *
 
