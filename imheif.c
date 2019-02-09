@@ -366,18 +366,16 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     i_img *im = imgs[i];
     int ch;
     struct heif_image *him = NULL;
+    int alpha_chan;
+    int has_alpha = i_img_alpha_channel(im, &alpha_chan);
+    enum heif_chroma chroma = has_alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
+    enum heif_colorspace cs = heif_colorspace_RGB;
     
-    if ((im->channels & 1) == 0) {
-      i_push_error(0, "no alpha images for now");
-      goto fail;
-    }
-    err = heif_image_create(im->xsize, im->ysize, heif_colorspace_RGB, heif_chroma_interleaved_RGB, &him);
+    err = heif_image_create(im->xsize, im->ysize, cs, chroma, &him);
     if (err.code != heif_error_Ok) {
       i_push_errorf(0, "heif error %d", (int)err.code);
       goto fail;
     }
-    /* FIXME: grayscale */
-    /* FIXME: alpha channel */
     /* FIXME: compression level */
     /* FIXME: "lossless" (rgb->YCbCr will lose some data) */
     /* FIXME: metadata */
@@ -386,15 +384,18 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
       i_img_dim y;
       int stride;
       uint8_t *p;
+      uint8_t *pa;
+      int alpha_stride;
       int samp_chan;
       struct heif_image_handle *him_h;
       struct heif_encoding_options *options = NULL;
       const int *chan_list = im->channels > 2 ? NULL : gray_chans;
+      int color_chans = i_img_color_channels(im);
 
       /* I tried just adding just heif_channel_Y (luminance) for grayscale,
 	 but libheif crashed at the encoding step.
       */
-      err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, 24);
+      err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, has_alpha ? 32 : 24);
       if (err.code != heif_error_Ok) {
 	i_push_error(0, "failed to add plane");
       failimage:
@@ -404,15 +405,15 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
       p = heif_image_get_plane(him, heif_channel_interleaved, &stride);
       for (y = 0; y < im->ysize; ++y) {
 	uint8_t *pp = p + stride * y;
-	i_gsamp(im, 0, im->xsize, y, pp, chan_list, 3);
+	i_gsamp(im, 0, im->xsize, y, pp, chan_list, has_alpha ? 4 : 3);
       }
       options = heif_encoding_options_alloc(); 
       err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
+      heif_encoding_options_free(options);
       if (err.code != heif_error_Ok) {
 	i_push_error(0, "fail to encode");
 	goto failimage;
       }
-      heif_encoding_options_free(options);
     }
   }
 
