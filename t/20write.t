@@ -16,4 +16,17 @@ use lib 't/lib';
   is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
 }
 
+{
+  my $im = test_image;
+  my $im2 = $im->convert(preset => "gray")
+    or diag $im->errstr;
+
+  my $data;
+  ok($im2->write(data => \$data, type => "heif"),
+     "write single gray image")
+    or diag $im2->errstr;
+  ok(length $data, "actually wrote something (gray)");
+  is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
+}
+
 done_testing();

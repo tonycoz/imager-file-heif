@@ -249,9 +249,9 @@ i_writeheif(i_img *im, io_glue *ig) {
   return i_writeheif_multi(ig, &im, 1);
 }
 
-#if 0
-
 static const int gray_chans[4] = { 0, 0, 0, 1 };
+
+#if 0
 
 static unsigned char *
 frame_raw(i_img *im, int *out_chans) {
@@ -367,8 +367,8 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     int ch;
     struct heif_image *him = NULL;
     
-    if (im->channels != 3) {
-      i_push_error(0, "only 3 channel images for now");
+    if ((im->channels & 1) == 0) {
+      i_push_error(0, "no alpha images for now");
       goto fail;
     }
     err = heif_image_create(im->xsize, im->ysize, heif_colorspace_RGB, heif_chroma_interleaved_RGB, &him);
@@ -389,6 +389,11 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
       int samp_chan;
       struct heif_image_handle *him_h;
       struct heif_encoding_options *options = NULL;
+      const int *chan_list = im->channels > 2 ? NULL : gray_chans;
+
+      /* I tried just adding just heif_channel_Y (luminance) for grayscale,
+	 but libheif crashed at the encoding step.
+      */
       err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, 24);
       if (err.code != heif_error_Ok) {
 	i_push_error(0, "failed to add plane");
@@ -399,7 +404,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
       p = heif_image_get_plane(him, heif_channel_interleaved, &stride);
       for (y = 0; y < im->ysize; ++y) {
 	uint8_t *pp = p + stride * y;
-	i_gsamp(im, 0, im->xsize, y, pp, NULL, 3);
+	i_gsamp(im, 0, im->xsize, y, pp, chan_list, 3);
       }
       options = heif_encoding_options_alloc(); 
       err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
