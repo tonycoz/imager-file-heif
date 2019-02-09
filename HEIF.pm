@@ -75,6 +75,19 @@ Imager->register_writer
    },
   );
 
+eval {
+  # available in some future version of Imager
+  Imager->add_file_magic
+    (
+     name => "heif",
+     bits => "    ftypheic",
+     mask => "    xxxxxxxx",
+    );
+};
+
+1;
+
+
 __END__
 
 =head1 NAME
