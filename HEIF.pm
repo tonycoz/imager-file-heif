@@ -111,6 +111,7 @@ Imager::File::HEIF - read and write HEIF files
 Implements .heif file support for Imager.
 
 Due to the limitations of C<heif> (or possibly C<libheif>) grayscale
+images are written as RGB images.
 images are written as RGB images. FIXME: they're currently rejected.
 
 libx265 will
