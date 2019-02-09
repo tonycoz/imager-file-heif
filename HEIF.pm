@@ -173,10 +173,6 @@ supported completely yet.
 
 =item *
 
-writing alpha
-
-=item *
-
 reading multiple images
 
 =item *
