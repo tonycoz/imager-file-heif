@@ -240,7 +240,6 @@ i_readheif_multi(io_glue *ig, int *count) {
     goto fail;
   }
 
-  fprintf(stderr, "total images %d\n", total_top_level);
   result = mymalloc(sizeof(i_img *) * total_top_level);
   for (i = 0; i < total_top_level; ++i) {
     i_img *im = get_image(ctx, img_ids[i]);
