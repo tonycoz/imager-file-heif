@@ -335,8 +335,6 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     goto fail;
   }
 
-  heif_encoder_set_lossy_quality(encoder, 80);
-
   for (i = 0; i < count; ++i) {
     i_img *im = imgs[i];
     int ch;
@@ -345,7 +343,16 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     int has_alpha = i_img_alpha_channel(im, &alpha_chan);
     enum heif_chroma chroma = has_alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
     enum heif_colorspace cs = heif_colorspace_RGB;
+    int lossless = 0, quality = 80;
     
+    (void)i_tags_get_int(&im->tags, "heif_lossless", 0, &lossless);
+    (void)i_tags_get_int(&im->tags, "heif_quality", 0, &quality);
+    heif_encoder_set_lossless(encoder, lossless);
+    if (!lossless) {
+      heif_encoder_set_lossy_quality(encoder, quality);
+    }
+    heif_encoder_set_lossy_quality(encoder, 80);
+
     err = heif_image_create(im->xsize, im->ysize, cs, chroma, &him);
     if (err.code != heif_error_Ok) {
       i_push_errorf(0, "heif error %d", (int)err.code);

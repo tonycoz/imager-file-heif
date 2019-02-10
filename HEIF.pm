@@ -160,6 +160,32 @@ Development of Imager::File::HEIF was done with the latest development
 versions of libheif and libde265 at the time ie from git, older
 releases might fail to build or run.
 
+=head1 CONTROLLING COMPRESSION
+
+You can control compression through two tags (implicityly set on the
+images via write() or write_multi()):
+
+=over
+
+=item *
+
+C<heif_lossless> - if this is non-zero the image is compressed in
+"lossless" mode.  Note that in both lossy and lossless modes the image
+is converted from the RGB colorspace to the YCbCr colorspace, which
+will lose information.  If non-zero the C<heif_quality> value is
+ignored (and irrelevant.)  Default: 0 (lossy compression is used.)
+
+=item *
+
+C<heif_quality> - a value from 0 to 100 representing the quality of
+lossy compression.  Default: 80.
+
+=back
+
+B<WARNING>: from my testing, using the rough measure done by Imager
+i_img_diff(), lossy at 80 quality turned out closer to the original
+image than lossless.
+
 =head1 TODO
 
 =over

@@ -23,6 +23,20 @@ use lib 't/lib';
   is($res->getheight, $im->getheight, "check height");
   is($res->getchannels, $im->getchannels, "check channels");
   is_image_similar($res, $im, 8_000_000, "check image matches roughly");
+
+  # lossless
+  my $data2;
+  ok($im->write(data => \$data2, type => "heif", heif_lossless => 1),
+     "write in lossless mode");
+  ok(length $data2, "got some data");
+  my $res2 = Imager->new;
+  ok($res2->read(data => \$data2, type => "heif"),
+     "read it back in")
+    or diag $res2->errstr;
+  is_image_similar($res, $im, 8_000_000, "check image matches roughly");
+  # horribly enough, lossless is worse than lossy @80 quality
+  note "quality lossy    ".Imager::i_img_diff($im->{IMG}, $res->{IMG});
+  note "quality lossless ".Imager::i_img_diff($im->{IMG}, $res2->{IMG});
 }
 
 {
