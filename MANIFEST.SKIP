@@ -15,3 +15,5 @@ blib
 ^MANIFEST\.bak$
 
 ^[^/\\]+\.(png|webp|jpe?g|hei[cf])$
+
+^.*\.log$

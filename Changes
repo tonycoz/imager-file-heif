@@ -1,0 +1,9 @@
+Imager-File-HEIF 0.001 10 Feb 2019
+======================
+
+Initial release.
+
+Supports reading and writing HEIF/HEIC images.
+
+You can specify the compression level or use lossless compression,
+though the RGB => YCbCr conversion makes that lossy too.
