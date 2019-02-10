@@ -176,6 +176,9 @@ supported completely yet.
 =item *
 
 reading metadata (any to read?) I think pixel ratios are available.
+HEIF supports pixel ratios via the C<PixelAspectRatioBox pasp> member
+of C<ItemPropertyContainerBox 'ipco'> but libheif doesn't appear to
+support that.
 
 =item *
 
@@ -186,11 +189,12 @@ webp does.
 
 reading sub-image data?  we can probably skip thumbs (or provide an
 option to read the thumb rather than the main image), but are there
-other images to read?  Low priority.
+other images to read?  Depth images.  Low priority.
 
 =item *
 
-writing sub-image data?  Very low priority.
+writing sub-image data?  thumbnails and depth images.  Very low
+priority.
 
 =item *
 
