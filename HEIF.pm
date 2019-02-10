@@ -85,6 +85,11 @@ eval {
     );
 };
 
+eval {
+  # from Imager 1.008
+  Imager->add_type_extensions("heif", "heic", "heif");
+};
+
 1;
 
 
@@ -97,6 +102,8 @@ Imager::File::HEIF - read and write HEIF files
 =head1 SYNOPSIS
 
   use Imager;
+  # you need to explicitly load it, or supply a type => "heif" parameter
+  use Imager::File::HEIF;
 
   my $img = Imager->new;
   $img->read(file=>"foo.heif")
