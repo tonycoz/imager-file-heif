@@ -110,7 +110,7 @@ my %probe =
    libbase => [ "libheif", "libde265" ],
    testcode => _heif_test_code(),
    testcodeheaders => [ "libheif/heif.h", "stdio.h", "string.h" ],
-   libopts => "-lheif -lde265",
+   libopts => "-lheif",
    incpath => \@incpaths,
    libpath => \@libpaths,
    verbose => $verbose,
@@ -133,8 +133,37 @@ else {
 sub _heif_test_code {
   return <<'CODE';
     uint32_t ver = heif_get_version_number();
+    struct heif_context *ctx = heif_context_alloc();
+    const struct heif_encoder_descriptor *encoders[10] = { NULL };
+    int count;
     printf("libheif %d.%d.%d (%x)\n",
 	    ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, ver);
+
+    if (ver < 0x01030000) {
+        printf("At least version 1.3.0 of libheif is required\n");
+        return 1;
+    }
+    printf("libheif is sufficiently recent (1.3.0 required).\n");
+
+    if (!ctx) {
+        printf("Couldn't allocate a libheif context - memory?\n");
+        return 1;
+    }
+
+    /* make sure we have a HEVC encoder */
+    count = heif_context_get_encoder_descriptors(ctx, heif_compression_HEVC, NULL, encoders, 10);
+    if (count <= 0) {
+        printf("libheif doesn't have a HEVC encoder - you need to ensure libheif's configure finds libx265\n");
+        return 1;
+    }
+    printf("Found a HEVC encoder.\n");
+
+    if (!heif_have_decoder_for_format(heif_compression_HEVC)) {
+        printf("libheif doesn't have a HEVC decoder - you need to ensure libheif's configure finds libde265\n");
+        return 1;
+    }
+    printf("Found a HEVC decoder too.\n");
+
     return 0;
 CODE
 }
