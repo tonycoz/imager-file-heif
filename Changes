@@ -1,3 +1,17 @@
+Imager-File-HEIF 0.003 ???
+======================
+
+ - require libheif 1.4.0.
+   Older versions don't properly initialize some class members which
+   can result in images that don't meet the spec for non-trivial
+   programs.  libheif itself can load such images, but other software
+   (OS X Preview at least) will fail to load the image.
+
+ - use the encoder defaults for quality instead of our own.
+
+ - use a new libheif encoder object for each image rather than re-using
+   the encoder object.
+
 Imager-File-HEIF 0.002 11 Feb 2019
 ======================
 
