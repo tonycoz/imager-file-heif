@@ -270,9 +270,14 @@ i_readheif_multi(io_glue *ig, int *count) {
   return NULL;
 }
 
-undef_int
-i_writeheif(i_img *im, io_glue *ig) {
-  return i_writeheif_multi(ig, &im, 1);
+i_img   *
+i_readavif(io_glue *ig, int page) {
+  return i_readheif(ig, page);
+}
+
+i_img  **
+i_readavif_multi(io_glue *ig, int *count) {
+  return i_readheif_multi(ig, count);
 }
 
 static const int gray_chans[4] = { 0, 0, 0, 1 };
@@ -294,7 +299,7 @@ write_heif(struct heif_context *ctx, const void *data,
 }
 
 undef_int
-i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
+i_writelow_multi(io_glue *ig, i_img **imgs, int count, enum heif_compression_format format) {
   struct heif_context *ctx = heif_context_alloc();
   struct heif_error err;
   struct heif_writer writer;
@@ -339,7 +344,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     int lossless = 0, quality = -1;
     struct heif_encoder *encoder = NULL;
 
-    err = heif_context_get_encoder_for_format(ctx, heif_compression_HEVC, &encoder);
+    err = heif_context_get_encoder_for_format(ctx, format, &encoder);
     if (err.code != heif_error_Ok) {
       i_push_errorf(0, "heif error %d", (int)err.code);
       goto fail;
@@ -419,6 +424,26 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   heif_context_free(ctx);
 
   return 0;
+}
+
+undef_int
+i_writeheif(i_img *im, io_glue *ig) {
+  return i_writeheif_multi(ig, &im, 1);
+}
+
+undef_int
+i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
+  return i_writelow_multi(ig, imgs, count, heif_compression_HEVC);
+}
+
+undef_int
+i_writeavif(i_img *im, io_glue *ig) {
+  return i_writeavif_multi(ig, &im, 1);
+}
+
+undef_int
+i_writeavif_multi(io_glue *ig, i_img **imgs, int count) {
+  return i_writelow_multi(ig, imgs, count, heif_compression_AV1);
 }
 
 char const *

@@ -42,6 +42,38 @@ Imager->register_reader
    },
   );
 
+Imager->register_reader
+  (
+   type=>'avif',
+   single => 
+   sub { 
+     my ($im, $io, %hsh) = @_;
+
+     my $page = $hsh{page};
+     defined $page or $page = 0;
+     $im->{IMG} = i_readavif($io, $page);
+
+     unless ($im->{IMG}) {
+       $im->_set_error(Imager->_error_as_msg);
+       return;
+     }
+
+     return $im;
+   },
+   multiple =>
+   sub {
+     my ($io, %hsh) = @_;
+
+     my @imgs = i_readavif_multi($io);
+     unless (@imgs) {
+       Imager->_set_error(Imager->_error_as_msg);
+       return;
+     }
+
+     return map bless({ IMG => $_, ERRSTR => undef }, "Imager"), @imgs;
+   },
+  );
+
 Imager->register_writer
   (
    type=>'heif',
@@ -75,6 +107,39 @@ Imager->register_writer
    },
   );
 
+Imager->register_writer
+  (
+   type=>'avif',
+   single => 
+   sub { 
+     my ($im, $io, %hsh) = @_;
+
+     $im->_set_opts(\%hsh, "i_", $im);
+     $im->_set_opts(\%hsh, "avif_", $im);
+
+     unless (i_writeavif($im->{IMG}, $io)) {
+       $im->_set_error(Imager->_error_as_msg);
+       return;
+     }
+     return $im;
+   },
+   multiple =>
+   sub {
+     my ($class, $io, $opts, @ims) = @_;
+
+     Imager->_set_opts($opts, "avif_", @ims);
+
+     my @work = map $_->{IMG}, @ims;
+     my $result = i_writeavif_multi($io, @work);
+     unless ($result) {
+       $class->_set_error($class->_error_as_msg);
+       return;
+     }
+
+     return 1;
+   },
+  );
+
 eval {
   # available in some future version of Imager
   Imager->add_file_magic
@@ -83,11 +148,24 @@ eval {
      bits => "    ftypheic",
      mask => "    xxxxxxxx",
     );
+  Imager->add_file_magic
+    (
+     name => "avif",
+     bits => "    ftypavif",
+     mask => "    xxxxxxxx",
+    );
+  Imager->add_file_magic
+    (
+     name => "avif",
+     bits => "    ftypavis",
+     mask => "    xxxxxxxx",
+    );
 };
 
 eval {
   # from Imager 1.008
   Imager->add_type_extensions("heif", "heic", "heif");
+  Imager->add_type_extensions("avif", "avif", "avifs");
 };
 
 1;

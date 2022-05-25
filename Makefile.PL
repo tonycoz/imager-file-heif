@@ -18,7 +18,7 @@ our %IMAGER_LIBS;
 my %opts = 
   (
    NAME => 'Imager::File::HEIF',
-   VERSION_FROM => 'HEIF.pm',
+   VERSION_FROM => 'lib/Imager/File/HEIF.pm',
    OBJECT => 'HEIF.o imheif.o',
    #DEFINE => $define,
    clean => { FILES => 'testout' },
@@ -132,9 +132,11 @@ else {
 
 sub _heif_test_code {
   return <<'CODE';
+
+#define MAX_ENCODERS 20
     uint32_t ver = heif_get_version_number();
     struct heif_context *ctx = heif_context_alloc();
-    const struct heif_encoder_descriptor *encoders[10] = { NULL };
+    const struct heif_encoder_descriptor *encoders[MAX_ENCODERS] = { NULL };
     int count;
     printf("libheif %d.%d.%d (%x)\n",
 	    ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, ver);
@@ -151,8 +153,17 @@ sub _heif_test_code {
         return 1;
     }
 
+    count = heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, encoders, MAX_ENCODERS);
+    if (count > 0) {
+        int i;
+        printf("Found %d encoders:\n", count);
+        for (i = 0; i < count; ++i) {
+            printf("  %s\n", heif_encoder_descriptor_get_name(encoders[i]));
+        }
+    }
+
     /* make sure we have a HEVC encoder */
-    count = heif_context_get_encoder_descriptors(ctx, heif_compression_HEVC, NULL, encoders, 10);
+    count = heif_context_get_encoder_descriptors(ctx, heif_compression_HEVC, NULL, encoders, MAX_ENCODERS);
     if (count <= 0) {
         printf("libheif doesn't have a HEVC encoder - you need to ensure libheif's configure finds libx265\n");
         return 1;
@@ -164,6 +175,20 @@ sub _heif_test_code {
         return 1;
     }
     printf("Found a HEVC decoder too.\n");
+
+    /* make sure we have a AV1 encoder */
+    count = heif_context_get_encoder_descriptors(ctx, heif_compression_AV1, NULL, encoders, MAX_ENCODERS);
+    if (count <= 0) {
+        printf("libheif doesn't have a AV1 (AVIF) encoder - you need to ensure libheif's configure finds libaom\n");
+        return 1;
+    }
+    printf("Found a AV1 (AVIF) encoder.\n");
+
+    if (!heif_have_decoder_for_format(heif_compression_AV1)) {
+        printf("libheif doesn't have a AV1 (AVIF) decoder - you need to ensure libheif's configure finds libaom\n");
+        return 1;
+    }
+    printf("Found a AV1 (AVIF) decoder too.\n");
 
     return 0;
 CODE
