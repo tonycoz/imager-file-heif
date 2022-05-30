@@ -41,24 +41,64 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     chroma = heif_chroma_interleaved_RGBA;
   }
 
+  /* try a default decode, this typically gives us monochrome or RGB,
+     but we need to consider whether it might give us a YCbCr image,
+     or an RGB image without alpha when the file has alpha.
+  */
+  err = heif_decode_image(img_handle, &him, heif_colorspace_undefined,
+                          heif_chroma_undefined, NULL);
+  if (err.code != heif_error_Ok) {
+    i_push_errorf(err.code, "failed to decoded image: %s", err.message);
+    goto fail;
+  }
+
+  cs = heif_image_get_colorspace(him);
+  if (cs == heif_colorspace_monochrome
+      && heif_image_get_chroma_format(him) == heif_chroma_monochrome) {
+    channels = heif_image_has_channel(him, heif_channel_Alpha) ? 2 : 1;
+  }
+  else {
+    if (heif_image_get_chroma_format(him) != chroma) {
+      heif_image_release(him);
+
+      him = NULL;
+
+      err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
+                              chroma, NULL);
+      if (err.code != heif_error_Ok) {
+        i_push_errorf(err.code, "failed to decod image (second try): %s", err.message);
+        goto fail;
+      }
+    }
+  }
+
   img = i_img_8_new(width, height, channels);
   if (!img) {
     i_push_error(0, "failed to create image");
     goto fail;
   }
 
-  err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
-			  chroma, NULL);
-  if (err.code != heif_error_Ok) {
-    i_push_error(0, "failed to decode");
-    goto fail;
+  if (channels > 2) {
+    data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
+
+    for (y = 0; y < height; ++y) {
+      const uint8_t *p = data + stride * y;
+      i_psamp(img, 0, width, y, p, NULL, channels);
+    }
   }
+  else {
+    data = heif_image_get_plane_readonly(him, heif_channel_Y, &stride);
+    for (y = 0; y < height; ++y, data += stride) {
+      i_psamp(img, 0, width, y, data, NULL, 1);
+    }
+    if (channels == 2) {
+      int alpha_chan = 1;
+      data = heif_image_get_plane_readonly(him, heif_channel_Alpha, &stride);
 
-  data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
-
-  for (y = 0; y < height; ++y) {
-    const uint8_t *p = data + stride * y;
-    i_psamp(img, 0, width, y, p, 0, channels);
+      for (y = 0; y < height; ++y, data += stride) {
+        i_psamp(img, 0, width, y, data, &alpha_chan, 1);
+      }
+    }
   }
 
   heif_image_handle_release(img_handle);
@@ -298,7 +338,9 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   struct heif_context *ctx = heif_context_alloc();
   struct heif_error err;
   struct heif_writer writer;
+  struct heif_encoder *encoder = NULL;
   int i;
+  int def_quality;
 
   i_clear_error();
 
@@ -314,30 +356,30 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   /* this might be useful at some point, currently only HEVC is built-in and JPEG
      isn't supported even if libjpeg is detected by configure
   */
-  {
-    const struct heif_encoder_descriptor* encoders[10] =  { NULL };
-    int count;
-    count = heif_context_get_encoder_descriptors(ctx, heif_compression_HEVC, NULL, encoders, 10);
-    if (count > 0) {
-      int i;
-      for (i = 0; i < count; ++i) {
-	mm_log((1, "encoder %d id %s name %s\n", i, heif_encoder_descriptor_get_id_name(encoders[i]),
-		heif_encoder_descriptor_get_name(encoders[i])));
-      }
-    }
-  }
 #endif
+
+  err = heif_context_get_encoder_for_format(ctx, heif_compression_HEVC, &encoder);
+  if (err.code != heif_error_Ok) {
+    i_push_errorf(0, "heif error %d", (int)err.code);
+    goto fail;
+  }
+
+  err = heif_encoder_get_parameter_integer(encoder, "quality", &def_quality);
+  if (err.code != heif_error_Ok) {
+    mm_log((3, "Could not read default quality from encoder, falling back to 75: %s", err.message));
+    def_quality = 75;
+  }
+
+  heif_encoder_release(encoder);
+  encoder = NULL;
 
   for (i = 0; i < count; ++i) {
     i_img *im = imgs[i];
     int ch;
-    struct heif_image *him = NULL;
     int alpha_chan;
     int has_alpha = i_img_alpha_channel(im, &alpha_chan);
-    enum heif_chroma chroma = has_alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
-    enum heif_colorspace cs = heif_colorspace_RGB;
-    int lossless = 0, quality = -1;
-    struct heif_encoder *encoder = NULL;
+    int lossless = 0;
+    int quality = def_quality;
 
     err = heif_context_get_encoder_for_format(ctx, heif_compression_HEVC, &encoder);
     if (err.code != heif_error_Ok) {
@@ -346,59 +388,113 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     }
 
     (void)i_tags_get_int(&im->tags, "heif_lossless", 0, &lossless);
-    if (i_tags_get_int(&im->tags, "heif_quality", 0, &quality)) {
-      heif_encoder_set_lossy_quality(encoder, quality);
-    }
-    mm_log((1, "heif: colorspace %d chroma %d lossless %d quality %d\n",
-	    (int)cs, (int)chroma, lossless, quality));
+    (void)i_tags_get_int(&im->tags, "heif_quality", 0, &quality);
+    heif_encoder_set_lossy_quality(encoder, quality);
 
     heif_encoder_set_lossless(encoder, lossless);
 
-    err = heif_image_create(im->xsize, im->ysize, cs, chroma, &him);
-    if (err.code != heif_error_Ok) {
-      i_push_errorf(0, "heif error %d", (int)err.code);
-      goto fail;
-    }
-    /* FIXME: metadata */
-    /* FIXME: leaks? */
-    {
-      i_img_dim y;
-      int stride;
-      uint8_t *p;
-      uint8_t *pa;
-      int alpha_stride;
-      int samp_chan;
-      struct heif_image_handle *him_h;
-      struct heif_encoding_options *options = NULL;
-      const int *chan_list = im->channels > 2 ? NULL : gray_chans;
-      int color_chans = i_img_color_channels(im);
+    if (im->channels >= 3) {
+      struct heif_image *him = NULL;
+      enum heif_chroma chroma = has_alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB;
+      mm_log((1, "heif: chroma %d lossless %d quality %d\n",
+              (int)chroma, lossless, quality));
 
-      /* I tried just adding just heif_channel_Y (luminance) for grayscale,
-	 but libheif crashed at the encoding step.
-      */
-      err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, has_alpha ? 32 : 24);
+      err = heif_image_create(im->xsize, im->ysize, heif_colorspace_RGB, chroma, &him);
       if (err.code != heif_error_Ok) {
-	i_push_error(0, "failed to add plane");
-      failimage:
-	heif_encoder_release(encoder);
-	heif_image_release(him);
-	goto fail;
+        i_push_errorf(0, "heif error %d", (int)err.code);
+        goto fail;
       }
-      p = heif_image_get_plane(him, heif_channel_interleaved, &stride);
+      /* FIXME: metadata */
+      /* FIXME: leaks? */
+      {
+        i_img_dim y;
+        int stride;
+        uint8_t *p;
+        uint8_t *pa;
+        int alpha_stride;
+        int samp_chan;
+        struct heif_image_handle *him_h;
+        struct heif_encoding_options *options = NULL;
+        int color_chans = i_img_color_channels(im);
+
+        err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, has_alpha ? 32 : 24);
+        if (err.code != heif_error_Ok) {
+          i_push_error(0, "failed to add plane");
+        failimagergb:
+          heif_image_release(him);
+          goto fail;
+        }
+        p = heif_image_get_plane(him, heif_channel_interleaved, &stride);
+        for (y = 0; y < im->ysize; ++y) {
+          uint8_t *pp = p + stride * y;
+          i_gsamp(im, 0, im->xsize, y, pp, NULL, has_alpha ? 4 : 3);
+        }
+        options = heif_encoding_options_alloc(); 
+        err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
+        heif_encoding_options_free(options);
+        if (err.code != heif_error_Ok) {
+          i_push_error(0, "fail to encode");
+          goto failimagergb;
+        }
+        heif_image_release(him);
+        heif_image_handle_release(him_h);
+      }
+    }
+    else {
+      struct heif_image_handle *him_h = NULL;
+      struct heif_encoding_options *options = NULL;
+      struct heif_image *him = NULL;
+      uint8_t *py;
+      int y_row_stride;
+      i_img_dim y;
+
+      err = heif_image_create(im->xsize, im->ysize, heif_colorspace_monochrome,
+                              heif_chroma_monochrome, &him);
+      if (err.code != heif_error_Ok) {
+        i_push_errorf(0, "heif error %d", (int)err.code);
+        goto fail;
+      }
+
+      err = heif_image_add_plane(him, heif_channel_Y, im->xsize, im->ysize, 8);
+      if (err.code != heif_error_Ok) {
+        i_push_errorf(err.code, "failed to add Y plane: %s", err.message);
+      failimagegray:
+        heif_image_release(him);
+        goto fail;
+      }
+      if (has_alpha) {
+        err = heif_image_add_plane(him, heif_channel_Alpha, im->xsize, im->ysize, 8);
+        if (err.code != heif_error_Ok) {
+          i_push_errorf(err.code, "failed to add alpha plane: %s", err.message);
+          goto failimagegray;
+        }
+      }
+      py = heif_image_get_plane(him, heif_channel_Y, &y_row_stride);
       for (y = 0; y < im->ysize; ++y) {
-	uint8_t *pp = p + stride * y;
-	i_gsamp(im, 0, im->xsize, y, pp, chan_list, has_alpha ? 4 : 3);
+        i_gsamp(im, 0, im->xsize, y, py, NULL, 1);
+        py += y_row_stride;
       }
+      if (has_alpha) {
+        int a_row_stride;
+        uint8_t *pa = heif_image_get_plane(him, heif_channel_Alpha, &a_row_stride);
+        for (y = 0; y < im->ysize; ++y) {
+          i_gsamp(im, 0, im->xsize, y, py, &alpha_chan, 1);
+          pa += a_row_stride;
+        }
+      }
+
       options = heif_encoding_options_alloc(); 
       err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
       heif_encoding_options_free(options);
       if (err.code != heif_error_Ok) {
-	i_push_error(0, "fail to encode");
-	goto failimage;
+        i_push_errorf(0, "fail to encode: %s", err.message);
+        goto failimagegray;
       }
       heif_image_release(him);
       heif_image_handle_release(him_h);
+      
       heif_encoder_release(encoder);
+      encoder = NULL;
     }
   }
 
@@ -416,6 +512,8 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   return 1;
   
  fail:
+  if (encoder)
+    heif_encoder_release(encoder);
   heif_context_free(ctx);
 
   return 0;

@@ -43,8 +43,7 @@ use lib 't/lib';
   my $im = test_image;
   my $im2 = $im->convert(preset => "gray")
     or diag $im->errstr;
-  my $cmp = $im2->convert(preset => "rgb")
-    or diag $im2->errstr;
+  my $cmp = $im2;
 
   my $data;
   ok($im2->write(data => \$data, type => "heif"),
@@ -100,9 +99,9 @@ SKIP:
     or do { diag "couldn't read:" . Imager->errstr; skip "couldn't read", 1 };
   is(@res, @cmp, "got the right number of images");
   for my $i ( 0 .. $#cmp) {
-    my $cmp = $cmp[$i]->getchannels() == 3 ? $cmp[$i] : $cmp[$i]->convert(preset => "rgb");
+    my $cmp = $cmp[$i];
     is_image_similar($res[$i], $cmp, 8_000_000,
-		     "check image $i");
+                     "check image $i");
   }
 }
 
