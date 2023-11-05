@@ -34,7 +34,6 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   */
   width = heif_image_handle_get_width(img_handle);
   height = heif_image_handle_get_height(img_handle);
-  /* FIXME alpha */
   channels = 3;
   if (heif_image_handle_has_alpha_channel(img_handle)) {
     ++channels;
