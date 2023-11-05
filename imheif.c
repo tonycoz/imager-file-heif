@@ -101,12 +101,15 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
 
+  heif_image_release(him);
   heif_image_handle_release(img_handle);
 
   i_tags_set(&img->tags, "i_format", "heif", 4);
 
   return img;
  fail:
+  if (him)
+    heif_image_release(him);
   if (img)
     i_img_destroy(img);
   if (img_handle)
