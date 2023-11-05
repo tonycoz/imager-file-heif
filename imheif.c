@@ -65,7 +65,7 @@ get_image(struct heif_context *ctx, heif_item_id id) {
       err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
                               chroma, NULL);
       if (err.code != heif_error_Ok) {
-        i_push_errorf(err.code, "failed to decod image (second try): %s", err.message);
+        i_push_errorf(err.code, "failed to decode image (second try): %s", err.message);
         goto fail;
       }
     }
