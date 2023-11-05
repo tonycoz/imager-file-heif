@@ -44,6 +44,8 @@ get_image(struct heif_context *ctx, heif_item_id id) {
      but we need to consider whether it might give us a YCbCr image,
      or an RGB image without alpha when the file has alpha.
   */
+  mm_log((1, "readheif: image (" i_DFp ") %d channels\n",
+          i_DFcp(width, height), channels));
   err = heif_decode_image(img_handle, &him, heif_colorspace_undefined,
                           heif_chroma_undefined, NULL);
   if (err.code != heif_error_Ok) {
@@ -54,10 +56,14 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   cs = heif_image_get_colorspace(him);
   if (cs == heif_colorspace_monochrome
       && heif_image_get_chroma_format(him) == heif_chroma_monochrome) {
+    mm_log((1, "readheif: image is monochrome\n"));
     channels = heif_image_has_channel(him, heif_channel_Alpha) ? 2 : 1;
   }
   else {
     if (heif_image_get_chroma_format(him) != chroma) {
+      mm_log((1, "readheif: image isn't RGB, cs is %d chroma %d\n",
+              (int)cs, (int)heif_image_get_chroma_format(him)));
+
       heif_image_release(him);
 
       him = NULL;
@@ -105,6 +111,8 @@ get_image(struct heif_context *ctx, heif_item_id id) {
 
   i_tags_set(&img->tags, "i_format", "heif", 4);
 
+  mm_log((1, "readheif: success\n"));
+
   return img;
  fail:
   if (him)
@@ -113,6 +121,9 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     i_img_destroy(img);
   if (img_handle)
     heif_image_handle_release(img_handle);
+
+  mm_log((1, "readheif: failed\n"));
+
   return NULL;
 }
 
