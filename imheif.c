@@ -334,7 +334,7 @@ static struct heif_error
 write_heif(struct heif_context *ctx, const void *data,
 	   size_t size, void *userdata) {
   io_glue *ig = (io_glue *)userdata;
-  struct heif_error err = { heif_error_Ok };
+  struct heif_error err = { heif_error_Ok, heif_suberror_Unspecified, "No error" };
 
   if (i_io_write(ig, data, size) != size) {
     i_push_error(errno, "failed to write");
