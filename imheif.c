@@ -8,6 +8,8 @@
 
 #define my_size_t_max (~(size_t)0)
 
+static int heif_init_done = 0;
+
 static i_img *
 get_image(struct heif_context *ctx, heif_item_id id) {
   i_img *img = NULL;
@@ -549,4 +551,24 @@ i_heif_libversion(void) {
 	    ver >> 24, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, (unsigned)ver);
   }
   return buf;
+}
+
+void
+i_heif_init(void) {
+  /* intended mostly for testing, so we manage initialization.
+     We initialize once by default, and a test can i_heif_uninit() to
+     avoid noise from memory leak tests.
+   */
+  if (!heif_init_done) {
+    heif_init(NULL);
+    heif_init_done = 1;
+  }
+}
+
+void
+i_heif_deinit(void) {
+  if (heif_init_done) {
+    heif_deinit();
+    heif_init_done = 0;
+  }
 }

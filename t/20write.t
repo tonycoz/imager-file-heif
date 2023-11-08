@@ -106,4 +106,6 @@ SKIP:
   }
 }
 
+Imager::File::HEIF::i_heif_deinit();
+
 done_testing();

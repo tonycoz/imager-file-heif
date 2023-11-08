@@ -87,5 +87,9 @@ i_writeheif_multi(ig, ...)
 const char *
 i_heif_libversion()
 
+void
+i_heif_deinit()
+
 BOOT:
 	PERL_INITIALIZE_IMAGER_CALLBACKS;
+        i_heif_init();
