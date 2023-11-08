@@ -330,17 +330,24 @@ i_writeheif(i_img *im, io_glue *ig) {
 
 static const int gray_chans[4] = { 0, 0, 0, 1 };
 
+struct write_context {
+  io_glue *io;
+  char error_buf[80];
+};
+
 static struct heif_error
 write_heif(struct heif_context *ctx, const void *data,
 	   size_t size, void *userdata) {
-  io_glue *ig = (io_glue *)userdata;
+  struct write_context *wc = (struct write_context *)userdata;
+  io_glue *ig = wc->io;
   struct heif_error err = { heif_error_Ok, heif_suberror_Unspecified, "No error" };
 
   if (i_io_write(ig, data, size) != size) {
     i_push_error(errno, "failed to write");
     err.code = heif_error_Encoding_error;
     err.subcode = heif_suberror_Cannot_write_output_data;
-    err.message = "Cannot write";
+    err.message = wc->error_buf;
+    sprintf(wc->error_buf, "Write error %d", errno);
   }
 
   return err;
@@ -352,6 +359,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   struct heif_error err;
   struct heif_writer writer;
   struct heif_encoder *encoder = NULL;
+  struct write_context wc;
   int i;
   int def_quality;
 
@@ -510,10 +518,10 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
       encoder = NULL;
     }
   }
-
-  err = heif_context_write(ctx, &writer, (void*)ig);
+  wc.io = ig;
+  err = heif_context_write(ctx, &writer, &wc);
   if (err.code != heif_error_Ok) {
-    i_push_error(0, "failed to write");
+    i_push_errorf(0, "failed to write: %s", err.message);
     goto fail;
   }
   if (i_io_close(ig)) {

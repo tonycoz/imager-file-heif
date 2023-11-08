@@ -11,7 +11,8 @@ use lib 't/lib';
 
   my $data;
   ok($im->write(data => \$data, type => "heif"),
-     "write single image");
+     "write single image")
+    or diag $im->errstr;
   ok(length $data, "actually wrote something");
   is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
 
