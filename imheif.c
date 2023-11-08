@@ -553,6 +553,11 @@ i_heif_libversion(void) {
   return buf;
 }
 
+char const *
+i_heif_buildversion(void) {
+  return LIBHEIF_VERSION;
+}
+
 void
 i_heif_init(void) {
   /* intended mostly for testing, so we manage initialization.
@@ -560,7 +565,9 @@ i_heif_init(void) {
      avoid noise from memory leak tests.
    */
   if (!heif_init_done) {
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
     heif_init(NULL);
+#endif
     heif_init_done = 1;
   }
 }
@@ -568,7 +575,9 @@ i_heif_init(void) {
 void
 i_heif_deinit(void) {
   if (heif_init_done) {
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
     heif_deinit();
+#endif
     heif_init_done = 0;
   }
 }

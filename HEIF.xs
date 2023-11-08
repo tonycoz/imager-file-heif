@@ -87,6 +87,9 @@ i_writeheif_multi(ig, ...)
 const char *
 i_heif_libversion()
 
+const char *
+i_heif_buildversion()
+
 void
 i_heif_deinit()
 
