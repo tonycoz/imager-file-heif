@@ -375,12 +375,6 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   writer.writer_api_version = 1; /* FIXME: named constant? */
   writer.write = write_heif;
 
-#if 0
-  /* this might be useful at some point, currently only HEVC is built-in and JPEG
-     isn't supported even if libjpeg is detected by configure
-  */
-#endif
-
   err = heif_context_get_encoder_for_format(ctx, heif_compression_HEVC, &encoder);
   if (err.code != heif_error_Ok) {
     i_push_errorf(0, "heif error %d", (int)err.code);

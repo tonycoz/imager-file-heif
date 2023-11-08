@@ -1,0 +1,67 @@
+name: test-linux
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+
+jobs:
+  imager-file-heif:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        LIBHEIF_RELEASE:
+          - "1.9.0"
+          - "1.9.1"
+          - "1.11.0"
+          - "1.12.0"
+          - "1.13.0"
+          - "1.14.2"
+          - "1.15.2"
+          - "1.16.2"
+          - "1.17.3"
+    steps:
+      - name: install dependencies
+        run: |
+            sudo add-apt-repository -y ppa:strukturag/libde265
+            sudo apt-get update ||:
+            sudo apt-get -y install build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev
+            #wget https://github.com/ultravideo/kvazaar/releases/download/v2.2.0/kvazaar-2.2.0.tar.gz
+            #tar xzf kvazaar-2.2.0.tar.gz
+            #cd kvazaar-2.2.0
+            #./configure
+            #make
+            #sudo make install
+            #sudo ldconfig
+            #cd ..
+            wget https://github.com/strukturag/libheif/releases/download/v${{ matrix.LIBHEIF_RELEASE }}/libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
+            ls
+            tar xzf libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
+            ls
+            cd libheif-${{ matrix.LIBHEIF_RELEASE }}
+            mkdir build
+            # -DWITH_KVAZAAR=1 
+            cmake -B build && cd build && make && sudo make install
+            echo "LD_LIBRARY_PATH=$(pkg-config --variable=libdir libheif)" >>$GITHUB_ENV
+            sudo cpan Imager
+      - name: perl version
+        run: |
+          perl -v
+          perl -V
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: configure
+        run: |
+          perl Makefile.PL
+      - name: build
+        run: |
+            make -j2
+      - name: test
+        run: |
+            make test
