@@ -24,6 +24,9 @@ Imager-File-HEIF 0.004
  - documentation updates to match changes to libheif and
    Imager::File::HEIF.
 
+ - make some internal functions into methods, some might be useful
+   in bug reporting, some you shouldn't use.
+
 Imager-File-HEIF 0.003 - 05 Apr 2019
 ======================
 
