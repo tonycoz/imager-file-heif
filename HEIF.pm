@@ -150,6 +150,8 @@ You do not need to call these in normal code.
 
 Initialise or clean up respectively the state of C<libheif>.
 
+These require C<libheif> 1.13.0 or later to have any effect.
+
 Imager::File::HEIF will call these on load and at C<END> time
 respectively.
 
