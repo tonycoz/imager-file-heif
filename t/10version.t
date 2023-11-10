@@ -4,13 +4,13 @@ use Test::More;
 
 use Imager::File::HEIF;
 
-my $ver = Imager::File::HEIF::i_heif_libversion();
+my $ver = Imager::File::HEIF->libversion();
 isnt($ver, "", "check some sort of version is returned");
 
-my $bver = Imager::File::HEIF::i_heif_buildversion();
+my $bver = Imager::File::HEIF->buildversion();
 isnt($bver, "", "check some sort of build version is returned");
 
-like($ver, qr/^[0-9]+\.[0-9]+\.[0-9]+ \([0-9a-f]+\)$/,
+like($ver, qr/^[0-9]+\.[0-9]+\.[0-9]+$/,
      "and contains the version");
 
 diag "libheif version $ver";

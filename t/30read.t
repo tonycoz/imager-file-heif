@@ -37,6 +37,4 @@ SKIP:
   is_image_similar($im, $cmp, 1_000_000, "check if vaguely similar");
 }
 
-Imager::File::HEIF::i_heif_deinit();
-
 done_testing();

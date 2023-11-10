@@ -90,6 +90,10 @@ eval {
   Imager->add_type_extensions("heif", "heic", "heif");
 };
 
+END {
+  __PACKAGE__->deinit();
+}
+
 1;
 
 
@@ -116,6 +120,43 @@ Imager::File::HEIF - read and write HEIF files
 =head1 DESCRIPTION
 
 Implements F<.heif> file support for Imager.
+
+=head1 CLASS METHODS
+
+=over
+
+=item libversion()
+
+=item buildversion()
+
+  my $lib_version   = Imager::File::HEIF->libversion;
+  my $build_version = Imager::File::HEIF->buildversion;
+
+Returns the version of C<libheif>, either the version of the library
+currently being used, or the version that Imager::File::HEIF was built
+with.
+
+These might differ because the library was updated after
+Imager::File::HEIF was built.
+
+=item init()
+
+=item deinit()
+
+  Imager::File::HEIF->init;
+  Imager::File::HEIF->deinit;
+
+You do not need to call these in normal code.
+
+Initialise or clean up respectively the state of C<libheif>.
+
+Imager::File::HEIF will call these on load and at C<END> time
+respectively.
+
+In practice C<libx265> still leaves a lot of memory leaked in my
+testing.
+
+=back
 
 =head1 PATENTS
 

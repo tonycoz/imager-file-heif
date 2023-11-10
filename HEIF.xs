@@ -84,14 +84,23 @@ i_writeheif_multi(ig, ...)
       OUTPUT:
         RETVAL
 
-const char *
-i_heif_libversion()
+MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF PREFIX = i_heif_
 
 const char *
-i_heif_buildversion()
+i_heif_libversion(class)
+          C_ARGS:
+
+const char *
+i_heif_buildversion(class)
+          C_ARGS:
 
 void
-i_heif_deinit()
+i_heif_init(class)
+          C_ARGS:
+
+void
+i_heif_deinit(class)
+          C_ARGS:
 
 BOOT:
 	PERL_INITIALIZE_IMAGER_CALLBACKS;
