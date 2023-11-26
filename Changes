@@ -1,3 +1,9 @@
+Imager-File-HEIF 0.005
+======================
+
+ - the user can now limit the number of decoding threads used by
+   libheif with libheif 1.13.0 or later.
+
 Imager-File-HEIF 0.004 - 10 Nov 2023
 ======================
 
