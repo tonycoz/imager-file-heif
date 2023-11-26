@@ -4,6 +4,10 @@ Imager-File-HEIF 0.005
  - the user can now limit the number of decoding threads used by
    libheif with libheif 1.13.0 or later.
 
+ - EXIF metadata is now parsed if found using the tags described in
+   Imager::File::HEIF
+   https://github.com/tonycoz/imager-file-heif/issues/4
+
 Imager-File-HEIF 0.004 - 10 Nov 2023
 ======================
 
