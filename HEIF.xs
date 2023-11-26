@@ -11,12 +11,26 @@ extern "C" {
 
 DEFINE_IMAGER_CALLBACKS;
 
+static int
+max_threads(pTHX) {
+  SV *sv = get_sv("Imager::File::HEIF::MaxThreads", 0);
+  if (sv && (SvGETMAGIC(sv), SvOK(sv))) {
+    return SvIV(sv);
+  }
+  else {
+    return -1;
+  }
+}
+
 MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF
+
+PROTOTYPES: DISABLE
 
 Imager::ImgRaw
 i_readheif(ig, page=0)
         Imager::IO     ig
                int     page
+  C_ARGS: ig, page, max_threads(aTHX)
 
 void
 i_readheif_multi(ig)
@@ -26,7 +40,7 @@ i_readheif_multi(ig)
         int count;
         int i;
       PPCODE:
-        imgs = i_readheif_multi(ig, &count);
+        imgs = i_readheif_multi(ig, &count, max_threads(aTHX));
         if (imgs) {
           EXTEND(SP, count);
           for (i = 0; i < count; ++i) {

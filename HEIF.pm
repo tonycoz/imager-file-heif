@@ -212,6 +212,16 @@ B<WARNING>: from my testing, using the rough measure done by Imager
 i_img_diff(), lossy at 80 quality turned out closer to the original
 image than lossless.
 
+=head1 RESOURCE USAGE
+
+HEIF processing is fairly resource intensive, and libheif uses
+multiple decoding threads by default when you read a HEIF image.
+
+With C<libheif> 1.13.0 or later you can set
+C<$Imager::File::HEIF::MaxThreads> to the maximum number of threads to
+use.  If this is negative or not defined the default is used, which is
+defined by C<libheif>.
+
 =head1 TODO
 
 =over

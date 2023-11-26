@@ -161,7 +161,7 @@ my_wait_for_file_size(int64_t target_size, void* userdata) {
 }
 
 i_img *
-i_readheif(io_glue *ig, int page) {
+i_readheif(io_glue *ig, int page, int max_threads) {
   i_img *img = NULL;
   struct heif_context *ctx = heif_context_alloc();
   struct heif_error err;
@@ -173,6 +173,9 @@ i_readheif(io_glue *ig, int page) {
   heif_item_id *img_ids = NULL;
   size_t ids_size;
 
+  mm_log((1, "readheif: ig %p page %d max_threads %d\n",
+          (void *)ig, page, max_threads));
+
   i_clear_error();
   if (!ctx) {
     i_push_error(0, "failed to allocate heif context");
@@ -183,6 +186,13 @@ i_readheif(io_glue *ig, int page) {
     i_push_error(0, "page must be non-negative");
     goto fail;
   }
+
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+  if (max_threads >= 0) {
+    heif_context_set_max_decoding_threads(ctx, max_threads);
+    mm_log((1, " readheif: set max threads %d\n", max_threads));
+  }
+#endif
 
   rd.ig = ig;
   rd.size = i_io_seek(ig, 0, SEEK_END);
@@ -240,7 +250,7 @@ i_readheif(io_glue *ig, int page) {
 }
 
 i_img **
-i_readheif_multi(io_glue *ig, int *count) {
+i_readheif_multi(io_glue *ig, int *count, int max_threads) {
   struct heif_context *ctx = heif_context_alloc();
   struct heif_error err;
   struct heif_reader reader;
@@ -254,11 +264,21 @@ i_readheif_multi(io_glue *ig, int *count) {
   int img_count = 0;
   int i;
 
+  mm_log((1, "readheif: ig %p pcount %p max threads %d\n",
+          (void *)ig, (void *)count, max_threads));
+ 
   i_clear_error();
   if (!ctx) {
     i_push_error(0, "failed to allocate heif context");
     return NULL;
   }
+
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+  if (max_threads >= 0) {
+    heif_context_set_max_decoding_threads(ctx, max_threads);
+    mm_log((1, " readheif: set max threads %d\n", max_threads));
+  }
+#endif
 
   rd.ig = ig;
   rd.size = i_io_seek(ig, 0, SEEK_END);
