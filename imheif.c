@@ -108,6 +108,32 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
 
+  heif_item_id exif_id;
+  if (heif_image_handle_get_list_of_metadata_block_IDs(img_handle, "Exif", &exif_id, 1) > 0) {
+    size_t size = heif_image_handle_get_metadata_size(img_handle, exif_id);
+    mm_log((1, "readheif: found exif context type %s size %zu\n",
+            heif_image_handle_get_metadata_content_type(img_handle, exif_id), size));
+    if (size > 4) {
+      void *metadata = mymalloc(size);
+      err = heif_image_handle_get_metadata(img_handle, exif_id, metadata);
+      if (err.code == heif_error_Ok) {
+        unsigned char *data = metadata;
+        size_t offset = ((size_t)data[0] << 24 | (size_t)data[1] << 16 |
+                         (size_t)data[2] << 8 | data[3]);
+        /* offset counts from the end of the bytes representing the offset,
+           so account for that
+         */
+        data += 4;
+        size -= 4;
+        /* beware a bad offset */
+        if (offset < size) {
+          im_decode_exif(img, data + offset, size - offset);
+        }
+      }
+      myfree(metadata);
+    }
+  }
+
   heif_image_release(him);
   heif_image_handle_release(img_handle);
 
