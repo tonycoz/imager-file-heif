@@ -188,18 +188,18 @@ Imager::File::HEIF has been tested up to version 1.17.3 of C<libheif>.
 
 =head1 CONTROLLING COMPRESSION
 
-You can control compression through two tags (implicityly set on the
+You can control compression through two tags (implicitly set on the
 images via write() or write_multi()):
 
 =over
 
 =item *
 
-C<heif_lossless> - if this is non-zero the image is compressed in
-"lossless" mode.  Note that in both lossy and lossless modes the image
-is converted from the RGB colorspace to the YCbCr colorspace, which
-will lose information.  If non-zero the C<heif_quality> value is
-ignored (and irrelevant.)  Default: 0 (lossy compression is used.)
+C<heif_lossless> - if non-zero the image is compressed in "lossless"
+mode.  Note that in both lossy and lossless modes the image is
+converted from the RGB colorspace to the YCbCr colorspace, which will
+lose information.  In lossless mode the C<heif_quality> value is
+ignored and irrelevant.  Default: 0 (lossy compression is used.)
 
 =item *
 
@@ -268,6 +268,8 @@ Tony Cook <tonyc@cpan.org>
 =head1 SEE ALSO
 
 Imager, Imager::Files.
+
+https://en.wikipedia.org/wiki/High_Efficiency_Image_File_Format
 
 https://github.com/strukturag/libheif
 
