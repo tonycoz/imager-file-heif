@@ -12,9 +12,6 @@ GetOptions("incpath=s", \@incpaths,
            "libpath=s" => \@libpaths,
            "verbose|v" => \$verbose);
 
-our $BUILDING_IMAGER;
-our %IMAGER_LIBS;
-
 my %opts = 
   (
    NAME => 'Imager::File::HEIF',
