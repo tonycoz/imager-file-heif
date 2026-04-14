@@ -12,57 +12,71 @@ static int heif_init_done = 0;
 
 static i_img *
 get_image(struct heif_context *ctx, heif_item_id id) {
-  i_img *img = NULL;
   struct heif_error err;
-  struct heif_image_handle *img_handle = NULL;
-  struct heif_image *him = NULL;
-  int stride;
-  const uint8_t *data;
-  int width, height, channels;
   i_img_dim y;
-  enum heif_colorspace cs;
-  enum heif_chroma chroma = heif_chroma_interleaved_RGB;
 
+  struct heif_image_handle *img_handle = NULL;
   err = heif_context_get_image_handle(ctx, id, &img_handle);
   if (err.code != heif_error_Ok) {
     i_push_error(0, "failed to get handle");
     goto fail;
   }
 
-  /* libheif or HEIF itself might not support grayscale images.
-     The chroma and colorspace constants appears to be for defining
-     (en|de)coding targets/sources, so you can supply grey scale to the
-     API, but it ends up as YCbCr in any case.
-  */
-  width = heif_image_handle_get_width(img_handle);
-  height = heif_image_handle_get_height(img_handle);
-  channels = 3;
-  if (heif_image_handle_has_alpha_channel(img_handle)) {
-    ++channels;
-    chroma = heif_chroma_interleaved_RGBA;
-  }
+  int width = heif_image_handle_get_width(img_handle);
+  int height = heif_image_handle_get_height(img_handle);
+  int has_alpha = heif_image_handle_has_alpha_channel(img_handle);
 
-  /* try a default decode, this typically gives us monochrome or RGB,
-     but we need to consider whether it might give us a YCbCr image,
-     or an RGB image without alpha when the file has alpha.
+  enum heif_colorspace try_cs = heif_colorspace_undefined;
+  enum heif_chroma try_chroma = heif_chroma_undefined;
+#if LIBHEIF_HAVE_VERSION(1, 17, 0)
+  err = heif_image_handle_get_preferred_decoding_colorspace
+    (img_handle, &try_cs, &try_chroma);
+  if (err.code == heif_error_Ok) {
+    mm_log((1, "readheif: detected chroma %d cs %d\n",
+            try_chroma, try_cs));
+    if (try_chroma != heif_chroma_monochrome) {
+      try_cs = heif_colorspace_RGB;
+      try_chroma = has_alpha
+        ? heif_chroma_interleaved_RGBA
+        : heif_chroma_interleaved_RGB;
+    }
+  }
+#endif
+
+  /*
+    heif can store the image as mono, YCbCr or RGB, but we only handle
+    mono or RGB.
+
+    If we have 1.17.0 or later the above may get us a usable
+    colorspace, but for older libheif or if the image has some issues,
+    it may not.
+
+     If it didn't try a default decode, this typically gives us
+     monochrome or RGB, but we need to consider whether it might give
+     us a YCbCr image, or an RGB image without alpha when the file has
+     alpha.
   */
-  mm_log((1, "readheif: image (" i_DFp ") %d channels\n",
-          i_DFcp(width, height), channels));
-  err = heif_decode_image(img_handle, &him, heif_colorspace_undefined,
-                          heif_chroma_undefined, NULL);
+  struct heif_image *him = NULL;
+  err = heif_decode_image(img_handle, &him, try_cs, try_chroma, NULL);
   if (err.code != heif_error_Ok) {
     i_push_errorf(err.code, "failed to decoded image: %s", err.message);
     goto fail;
   }
 
-  cs = heif_image_get_colorspace(him);
+  int color_channels;
+  enum heif_colorspace cs = heif_image_get_colorspace(him);
   if (cs == heif_colorspace_monochrome
       && heif_image_get_chroma_format(him) == heif_chroma_monochrome) {
     mm_log((1, "readheif: image is monochrome\n"));
-    channels = heif_image_has_channel(him, heif_channel_Alpha) ? 2 : 1;
+    color_channels = 1;
   }
   else {
-    if (heif_image_get_chroma_format(him) != chroma) {
+    enum heif_chroma want_chroma = has_alpha
+      ? heif_chroma_interleaved_RGBA
+      : heif_chroma_interleaved_RGB;
+    color_channels = 3;
+    if (heif_image_get_chroma_format(him) != want_chroma) {
+      /* hopefully this is unusual */
       mm_log((1, "readheif: image isn't RGB, cs is %d chroma %d\n",
               (int)cs, (int)heif_image_get_chroma_format(him)));
 
@@ -71,7 +85,7 @@ get_image(struct heif_context *ctx, heif_item_id id) {
       him = NULL;
 
       err = heif_decode_image(img_handle, &him, heif_colorspace_RGB,
-                              chroma, NULL);
+                              want_chroma, NULL);
       if (err.code != heif_error_Ok) {
         i_push_errorf(err.code, "failed to decode image (second try): %s", err.message);
         goto fail;
@@ -79,14 +93,20 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
 
-  img = i_img_8_new(width, height, channels);
+  int channels = color_channels + (has_alpha != 0);
+
+  mm_log((1, "readheif: image (" i_DFp ") %d channels\n",
+          i_DFcp(width, height), channels));
+
+  i_img *img = i_img_8_new(width, height, channels);
   if (!img) {
     i_push_error(0, "failed to create image");
     goto fail;
   }
 
   if (channels > 2) {
-    data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
+    int stride;
+    const uint8_t *data = heif_image_get_plane_readonly(him, heif_channel_interleaved, &stride);
 
     for (y = 0; y < height; ++y) {
       const uint8_t *p = data + stride * y;
@@ -94,14 +114,15 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
   else {
-    data = heif_image_get_plane_readonly(him, heif_channel_Y, &stride);
+    int stride;
+    const uint8_t *data = heif_image_get_plane_readonly(him, heif_channel_Y, &stride);
     for (y = 0; y < height; ++y, data += stride) {
       i_psamp(img, 0, width, y, data, NULL, 1);
     }
-    if (channels == 2) {
-      int alpha_chan = 1;
+    if (has_alpha) {
+      int alpha_chan = color_channels;
       data = heif_image_get_plane_readonly(him, heif_channel_Alpha, &stride);
-
+      
       for (y = 0; y < height; ++y, data += stride) {
         i_psamp(img, 0, width, y, data, &alpha_chan, 1);
       }
