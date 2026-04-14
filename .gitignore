@@ -21,3 +21,5 @@
 /Imager-File-HEIF-*
 /*.tar.gz
 /cov-int/
+
+/testout/
