@@ -53,12 +53,11 @@ my $ver = Imager::File::HEIF->libversion();
      "write single gray image")
     or diag $im2->errstr;
   ok(length $data, "actually wrote something (gray)");
- SKIP:
-  {
-      skip("1.20/21 changed generated main brand", 1)
-          if $ver =~ /^1\.2[01]\./;
-      is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
-  }
+  # prior to libheif 1.20 the main brand was incorrectly "heic"
+  # but should apparently be "heix", since monochrome isn't part
+  # of the base profile
+  # https://github.com/strukturag/libheif/issues/1765
+  like(substr($data, 4, 8), qr/^ftyphei[cx]$/, "got a HEIC file");
 
   my $res = Imager->new;
   ok($res->read(data => \$data, type => "heif"),
