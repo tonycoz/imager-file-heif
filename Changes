@@ -1,3 +1,9 @@
+ - accept a main brand of "heix" in addition to "heic" for monochrome
+   images.  libheif started producing this brand for monochrome images
+   in 1.20 and it seems to be the correct behaviour.  Continue to
+   accept "heic" since older libheif produces it.
+   https://github.com/strukturag/libheif/issues/1765
+
 Imager-File-HEIF 0.005 - 26 Nov 2023
 ======================
 
