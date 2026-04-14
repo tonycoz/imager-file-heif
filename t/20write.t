@@ -6,6 +6,8 @@ use Imager::File::HEIF;
 use Imager::Test qw(test_image is_image_similar);
 use lib 't/lib';
 
+my $ver = Imager::File::HEIF->libversion();
+
 {
   my $im = test_image;
 
@@ -51,7 +53,12 @@ use lib 't/lib';
      "write single gray image")
     or diag $im2->errstr;
   ok(length $data, "actually wrote something (gray)");
-  is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
+ SKIP:
+  {
+      skip("1.20/21 changed generated main brand", 1)
+          if $ver =~ /^1\.2[01]\./;
+      is(substr($data, 4, 8), 'ftypheic', "got a HEIC file");
+  }
 
   my $res = Imager->new;
   ok($res->read(data => \$data, type => "heif"),
