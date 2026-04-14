@@ -4,6 +4,12 @@
    accept "heic" since older libheif produces it.
    https://github.com/strukturag/libheif/issues/1765
 
+ - with libheif 1.17.0 or later, use a new API to try to detect
+   whether the image is mono or color without having to do a trial
+   decode.  Previously this would require decoding the image twice for
+   nearly all color images.
+   https://github.com/tonycoz/imager-file-heif/issues/6
+
 Imager-File-HEIF 0.005 - 26 Nov 2023
 ======================
 
