@@ -67,3 +67,9 @@ jobs:
       - name: test
         run: |
             make test
+      - name: artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-${{ matrix.LIBHEIF_RELEASE }}
+          path: testout/
+          retention-days: 7
