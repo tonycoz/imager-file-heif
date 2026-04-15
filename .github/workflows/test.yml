@@ -57,7 +57,7 @@ jobs:
           perl -v
           perl -V
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: configure
         run: |
           perl Makefile.PL
