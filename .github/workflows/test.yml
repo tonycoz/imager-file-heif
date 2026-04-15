@@ -33,26 +33,24 @@ jobs:
     steps:
       - name: install dependencies
         run: |
-            sudo add-apt-repository -y ppa:strukturag/libde265
+            #sudo add-apt-repository -y ppa:strukturag/libde265
             sudo apt-get update ||:
-            sudo apt-get -y install build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev
-            #wget https://github.com/ultravideo/kvazaar/releases/download/v2.2.0/kvazaar-2.2.0.tar.gz
-            #tar xzf kvazaar-2.2.0.tar.gz
-            #cd kvazaar-2.2.0
-            #./configure
-            #make
-            #sudo make install
-            #sudo ldconfig
-            #cd ..
+            sudo apt-get -y install build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev
+            # missing in ubuntu-latest libkvazaar-dev
+      - name: install libheif
+        run: |
             wget https://github.com/strukturag/libheif/releases/download/v${{ matrix.LIBHEIF_RELEASE }}/libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
             ls
             tar xzf libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
             ls
             cd libheif-${{ matrix.LIBHEIF_RELEASE }}
             mkdir build
-            # -DWITH_KVAZAAR=1 
             cmake -B build && cd build && make && sudo make install
             echo "LD_LIBRARY_PATH=$(pkg-config --variable=libdir libheif)" >>$GITHUB_ENV
+            examples/heif-enc --list-encoders || true
+            [ -x examples/heif-dec ] && examples/heif-dec --list-decoders || true
+      - name: install Imager
+        run: |
             sudo cpan Imager
       - name: perl version
         run: |
