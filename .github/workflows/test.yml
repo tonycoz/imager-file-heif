@@ -34,8 +34,8 @@ jobs:
       - name: install dependencies cached
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev
-          version: 1.0
+          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl
+          version: 1.1
       - name: variables
         run: |
             export INSTALL_PATH="$(realpath local)"
@@ -69,9 +69,20 @@ jobs:
             heif-enc --list-encoders || true
             [ -x $INSTALL_PATH/bin/heif-dec ] && heif-dec --list-decoders || true
 
+      - name: local-lib environment
+        run: |
+            perl -Mlocal::lib | grep -v '^PATH' >source.sh
+            . source.sh
+            for name in $(sed -e 's/=.*//' <source.sh) ; do
+               echo "$name=${!name}" >>$GITHUB_ENV
+            done
+            echo "$PERL_LOCAL_LIB_ROOT/bin" >>$GITHUB_PATH
+
       - name: install Imager
         run: |
-            sudo cpan Imager
+            set
+            echo $PATH
+            cpan Imager
       - name: perl version
         run: |
             perl -v
