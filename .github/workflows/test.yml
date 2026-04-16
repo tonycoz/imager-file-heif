@@ -36,39 +36,65 @@ jobs:
         with:
           packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev
           version: 1.0
+      - name: variables
+        run: |
+            export INSTALL_PATH="$(realpath local)"
+            echo "INSTALL_PATH=$INSTALL_PATH" >>$GITHUB_ENV
+            export PKG_CONFIG_PATH="$INSTALL_PATH/lib/pkgconfig"
+            echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >>$GITHUB_ENV
+
+      - name: cache libheif
+        id: cache-libheif
+        uses: actions/cache@v5
+        with:
+          path: local
+          key: libheif-${{ matrix.LIBHEIF_RELEASE }}-v1
+
       - name: install libheif
+        if: steps.cache-libheif.outputs.cache-hit != 'true'
         run: |
             wget https://github.com/strukturag/libheif/releases/download/v${{ matrix.LIBHEIF_RELEASE }}/libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
-            ls
             tar xzf libheif-${{ matrix.LIBHEIF_RELEASE }}.tar.gz
-            ls
             cd libheif-${{ matrix.LIBHEIF_RELEASE }}
             mkdir build
-            cmake -B build && cd build && make && sudo make install
-            echo "LD_LIBRARY_PATH=$(pkg-config --variable=libdir libheif)" >>$GITHUB_ENV
-            examples/heif-enc --list-encoders || true
-            [ -x examples/heif-dec ] && examples/heif-dec --list-decoders || true
+            cmake --install-prefix "$INSTALL_PATH" -B build && cd build && make && sudo make install
+
+      - name: libheif environment
+        run: |
+            echo "$INSTALL_PATH/bin" >>$GITHUB_PATH
+            echo "LD_LIBRARY_PATH=$INSTALL_PATH/lib" >>$GITHUB_ENV
+
+      - name: libheif tools
+        run: |
+            heif-enc --list-encoders || true
+            [ -x $INSTALL_PATH/bin/heif-dec ] && heif-dec --list-decoders || true
+
       - name: install Imager
         run: |
             sudo cpan Imager
       - name: perl version
         run: |
-          perl -v
-          perl -V
+            perl -v
+            perl -V
       - name: checkout
         uses: actions/checkout@v6
+        with:
+            path: main
       - name: configure
         run: |
-          perl Makefile.PL
+            cd main
+            perl Makefile.PL
       - name: build
         run: |
+            cd main
             make -j2
       - name: test
         run: |
+            cd main
             make test
       - name: artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: logs-${{ matrix.LIBHEIF_RELEASE }}
-          path: testout/
-          retention-days: 7
+            name: logs-${{ matrix.LIBHEIF_RELEASE }}
+            path: main/testout/
+            retention-days: 7
