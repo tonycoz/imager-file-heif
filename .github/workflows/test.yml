@@ -34,8 +34,8 @@ jobs:
       - name: install dependencies cached
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl
-          version: 1.1
+          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl jq
+          version: 1.2
       - name: variables
         run: |
             export INSTALL_PATH="$(realpath local)"
@@ -78,10 +78,21 @@ jobs:
             done
             echo "$PERL_LOCAL_LIB_ROOT/bin" >>$GITHUB_PATH
 
-      - name: install Imager
+      - name: imager prep
         run: |
-            set
-            echo $PATH
+            echo IMAGER_RELEASE=$(curl -sS 'https://fastapi.metacpan.org/v1/release/Imager' | jq -r '.["version"]') >>$GITHUB_ENV
+            echo PERL_VERSION=$(perl -e 'print $^V') >>$GITHUB_ENV
+
+      - name: cache imager
+        id: cache-imager
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.PERL_LOCAL_LIB_ROOT }}
+          key: imager-${{ env.IMAGER_RELEASE }}-${{ env.PERL_VERSION }}-v1
+
+      - name: install Imager
+        if: steps.cache-imager.outputs.cache-hit != 'true'
+        run: |
             cpan Imager
       - name: perl version
         run: |
