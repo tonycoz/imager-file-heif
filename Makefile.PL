@@ -129,6 +129,9 @@ else {
 
 sub _heif_test_code {
   return <<'CODE';
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+    heif_init(NULL);
+#endif
     uint32_t ver = heif_get_version_number();
     struct heif_context *ctx = heif_context_alloc();
     const struct heif_encoder_descriptor *encoders[10] = { NULL };

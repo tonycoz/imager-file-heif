@@ -186,6 +186,9 @@ Imager::File::HEIF requires at least version 1.9.0 of C<libheif>, but
 in general you want the very latest version you can get.
 Imager::File::HEIF has been tested up to version 1.17.3 of C<libheif>.
 
+1.14 through 1.16 need C<LIBDE265> support installed as part of the
+library, not as a plugin.
+
 =head1 CONTROLLING COMPRESSION
 
 You can control compression through two tags (implicitly set on the
