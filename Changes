@@ -10,6 +10,20 @@
    nearly all color images.
    https://github.com/tonycoz/imager-file-heif/issues/6
 
+ - github action:
+
+   - enable Imager logs and output the logs as an artifact
+
+   - cache installation of the apt packages with
+     awalsh128/cache-apt-pkgs-action.
+
+   - cache installation of the libheif build
+
+   - cache installation of Imager
+
+   - this took workflow runs from 2-4 minutes down to ~20 seconds when
+     everything is cached.
+
 Imager-File-HEIF 0.005 - 26 Nov 2023
 ======================
 
