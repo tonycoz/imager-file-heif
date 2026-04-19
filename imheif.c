@@ -603,6 +603,197 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   return 0;
 }
 
+const char *
+i_heif_compression_name(enum heif_compression_format fmt) {
+  switch (fmt) {
+  case heif_compression_undefined:
+    return "undefined";
+    
+  case heif_compression_HEVC:
+    return "hevc";
+    
+  case heif_compression_AVC:
+    return "avc";
+    
+  case heif_compression_JPEG:
+    return "jpeg";
+    
+  case heif_compression_AV1:
+    return "av1";
+
+  case heif_compression_VVC:
+    return "vvc";
+
+  case heif_compression_EVC:
+    return "evc";
+
+  case heif_compression_JPEG2000:
+    return "jpeg2000";
+
+  case heif_compression_uncompressed:
+    return "uncompressed";
+    
+  case heif_compression_mask:
+    return "mask";
+    
+  case heif_compression_HTJ2K:
+    return "jpeg2000ht";
+    
+  default:
+    return "unknown";
+  }
+}
+
+static void
+dump_int_enc_param(struct heif_encoder *enc, const char *name,
+                   const struct heif_encoder_parameter *param) {
+  struct heif_error err;
+  int have_min, have_max, minimum, maximum, num_values;
+  const int *valid_ints = NULL;
+  int def;
+  err = heif_encoder_parameter_get_valid_integer_values
+    (param, &have_min, &have_max, &minimum, &maximum,
+     &num_values, &valid_ints);
+  if (err.code == heif_error_Ok) {
+    printf("(int): ");
+    if (have_min && have_max) {
+      printf("%d ... %d", minimum, maximum);
+    }
+    else if (have_min) {
+      printf("%d ...", minimum);
+    }
+    else if (have_max) {
+      printf(" ... %d", maximum);
+    }
+    else if (num_values)  {
+      int i;
+      for (i = 0; i < num_values; ++i) {
+        if (i) printf(", ");
+        printf("%d", valid_ints[i]);
+      }
+    }
+    else {
+      printf("unlimited");
+    }
+  }
+  else {
+    printf("Error fetching valid values: %s", err.message);
+  }
+  err = heif_encoder_get_parameter_integer(enc, name, &def);
+  if (err.code == heif_error_Ok) {
+    printf(" (default %d)", def);
+  }
+  else {
+    printf("(failed to fetch default %s)", err.message);
+  }
+  putchar('\n');
+}
+
+static void
+dump_str_enc_param(struct heif_encoder *enc, const char *name,
+                   const struct heif_encoder_parameter *param) {
+  struct heif_error err;
+  const char * const *valid_strs;
+  char value[100];
+  err = heif_encoder_parameter_get_valid_string_values(param, &valid_strs);
+  printf("(str):");
+  if (err.code == heif_error_Ok) {
+    if (valid_strs) {
+      while (*valid_strs) {
+        printf(" \"%s\"", *valid_strs);
+        ++valid_strs;
+      }
+    }
+    else {
+      printf("(unrestricted)");
+    }
+  }
+  *value = '\0';
+  err = heif_encoder_get_parameter_string(enc, name, value, sizeof(value));
+  if (err.code == heif_error_Ok) {
+    printf(" (default \"%s\")", value);
+  }
+  else {
+    printf("(failed to fetch default %s)", err.message);
+  }
+  putchar('\n');
+}
+
+static void
+dump_encoder(struct heif_encoder *enc) {
+  struct heif_error err;
+  printf("  Parameters:\n");
+  const struct heif_encoder_parameter * const * params = heif_encoder_list_parameters(enc);
+  while (*params) {
+    const char *name = heif_encoder_parameter_get_name(*params);
+    printf("    %s ", name);
+    switch (heif_encoder_parameter_get_type(*params)) {
+    case heif_encoder_parameter_type_integer:
+      dump_int_enc_param(enc, name, *params);
+      break;
+    case heif_encoder_parameter_type_boolean:
+      {
+        printf("(boolean):");
+        int val;
+        err = heif_encoder_get_parameter_boolean(enc, name, &val);
+        if (err.code == heif_error_Ok) {
+          printf(" (default %s)", val ? "true" : "false");
+        }
+        else {
+          printf("(failed to fetch default %s)", err.message);
+        }
+        putchar('\n');
+      }
+      break;
+    case heif_encoder_parameter_type_string:
+      dump_str_enc_param(enc, name, *params);
+      break;
+    default:
+      printf("(unknown type)\n");
+      break;
+    }
+    ++params;
+  }
+}
+
+void
+i_heif_dump_encoders(void) {
+  struct heif_error err;
+  struct heif_context *ctx = heif_context_alloc();
+
+  if (!ctx) {
+    printf("Failed to allocate heif context\n");
+    return;
+  }
+  int count = heif_get_encoder_descriptors(heif_compression_undefined, NULL, NULL, 0);
+  int i;
+  const struct heif_encoder_descriptor **descs = mymalloc(sizeof(struct heif_encoder_descriptor *) * count);
+  heif_get_encoder_descriptors(heif_compression_undefined, NULL, descs, count);
+
+  for (i = 0; i < count; ++i) {
+    const struct heif_encoder_descriptor *desc = descs[i];
+    struct heif_encoder *enc = NULL;
+    struct heif_error err;
+
+    printf("%s (%s):\n", heif_encoder_descriptor_get_name(desc),
+           heif_encoder_descriptor_get_id_name(desc));
+    printf("  Format: %s\n", i_heif_compression_name(heif_encoder_descriptor_get_compression_format(desc)));
+    printf("  Lossless: %s\n", heif_encoder_descriptor_supports_lossless_compression(desc) ? "Yes" : "No");
+    printf("  Lossy: %s\n", heif_encoder_descriptor_supports_lossy_compression(desc) ? "Yes" : "No");
+
+    err = heif_context_get_encoder(ctx, desc, &enc);
+    if (err.code == heif_error_Ok) {
+      dump_encoder(enc);
+      heif_encoder_release(enc);
+    }
+    else {
+      printf("** Could not make encoder\n");
+    }
+  }
+  myfree(descs);
+  heif_context_free(ctx);
+}
+
 char const *
 i_heif_libversion(void) {
   static char buf[100];
