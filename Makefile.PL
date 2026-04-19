@@ -129,6 +129,7 @@ else {
 
 sub _heif_test_code {
   return <<'CODE';
+
 #if LIBHEIF_HAVE_VERSION(1, 13, 0)
     heif_init(NULL);
 #endif
