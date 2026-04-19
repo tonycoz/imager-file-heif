@@ -618,6 +618,7 @@ i_heif_compression_name(enum heif_compression_format fmt) {
   case heif_compression_JPEG:
     return "jpeg";
     
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   case heif_compression_AV1:
     return "av1";
 
@@ -629,15 +630,22 @@ i_heif_compression_name(enum heif_compression_format fmt) {
 
   case heif_compression_JPEG2000:
     return "jpeg2000";
+#endif
 
+#if LIBHEIF_HAVE_VERSION(1, 16, 0)
   case heif_compression_uncompressed:
     return "uncompressed";
+#endif
     
+#if LIBHEIF_HAVE_VERSION(1, 17, 0)
   case heif_compression_mask:
     return "mask";
+#endif
     
+#if LIBHEIF_HAVE_VERSION(1, 18, 0)
   case heif_compression_HTJ2K:
     return "jpeg2000ht";
+#endif
     
   default:
     return "unknown";

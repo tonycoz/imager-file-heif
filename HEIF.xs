@@ -51,13 +51,21 @@ static struct compression_names_t {
   { heif_compression_HEVC, "hevc" },
   { heif_compression_AVC, "avc" },
   { heif_compression_JPEG, "jpeg" },
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   { heif_compression_AV1, "av1" },
   { heif_compression_VVC, "vvc" },
   { heif_compression_EVC, "evc" },
   { heif_compression_JPEG2000, "jpeg2000" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 16, 0)
   { heif_compression_uncompressed, "uncompressed" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 17, 0)
   { heif_compression_mask, "mask" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 18, 0)
   { heif_compression_HTJ2K, "jpeg2000ht" },
+#endif
 };
 
 static const size_t compression_name_count =
