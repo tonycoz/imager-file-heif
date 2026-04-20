@@ -785,6 +785,8 @@ i_heif_dump_encoders(void) {
 #else
   heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, descs, count);
 #endif
+  if (count == 0)
+    printf("No encoders found\n");
 
   for (i = 0; i < count; ++i) {
     const struct heif_encoder_descriptor *desc = descs[i];
