@@ -773,10 +773,18 @@ i_heif_dump_encoders(void) {
     printf("Failed to allocate heif context\n");
     return;
   }
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   int count = heif_get_encoder_descriptors(heif_compression_undefined, NULL, NULL, 0);
+#else
+  int count = heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, NULL, 0);
+#endif
   int i;
   const struct heif_encoder_descriptor **descs = mymalloc(sizeof(struct heif_encoder_descriptor *) * count);
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   heif_get_encoder_descriptors(heif_compression_undefined, NULL, descs, count);
+#else
+  heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, descs, count);
+#endif
 
   for (i = 0; i < count; ++i) {
     const struct heif_encoder_descriptor *desc = descs[i];
