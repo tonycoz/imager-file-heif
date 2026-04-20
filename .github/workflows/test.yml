@@ -174,6 +174,10 @@ jobs:
         run: |
             cd main
             make -j2
+      - name: dump encoders
+        run: |
+            cd main
+            perl -Mblib -MImager::File::HEIF -e 'Imager::File::HEIF->dump_encoders'
       - name: test
         run: |
             cd main
