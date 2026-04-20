@@ -22,25 +22,6 @@ max_threads(pTHX) {
   }
 }
 
-#define i_heif_context_CLONE_SKIP()
-
-typedef struct heif_context *Imager__File__HEIF__Context;
-typedef struct heif_encoder_descriptor *Imager__File__HEIF__EncoderDescriptor;
-typedef struct heif_encoder *Imager__File__HEIF__Encoder;
-
-#define i_heif_context() xi_heif_context(aTHX)
-PERL_STATIC_INLINE struct heif_context *
-xi_heif_context(pTHX) {
-    struct heif_context *ctx = heif_context_alloc();
-    if (!ctx)
-        croak("Cannot create HEIF context");
-    return ctx;
-}
-
-void
-i_heif_context_DESTROY(struct heif_context *ctx) {
-    heif_context_free(ctx);
-}
 
 static struct compression_names_t {
   enum heif_compression_format fmt;
@@ -73,7 +54,7 @@ static const size_t compression_name_count =
 
 static enum heif_compression_format
 xi_heif_compression_format(pTHX_ const char *name) {
-    int i;
+    size_t i;
     for (i = 0; i < compression_name_count; ++i) {
         if (strcmp(compression_names[i].name, name) == 0) {
             return compression_names[i].fmt;
@@ -82,13 +63,84 @@ xi_heif_compression_format(pTHX_ const char *name) {
     croak("unknown HEIF compression type '%s'", name);
 }
 
+static HV *
+make_param_hv(pTHX_ struct heif_encoder *enc,
+              const struct heif_encoder_parameter *param) {
+    struct heif_error err;
+    const char *name = heif_encoder_parameter_get_name(param);
+    HV *param_hv = newHV();
+    enum heif_encoder_parameter_type ptype =
+        heif_encoder_parameter_get_type(param);
+    hv_stores(param_hv, "name", newSVpv(name, 0));
+
+    switch (ptype) {
+    case heif_encoder_parameter_type_integer:
+        {
+            int have_min, have_max, minimum, maximum, num_values;
+            const int *valid_ints = NULL;
+            int def;
+            err = heif_encoder_parameter_get_valid_integer_values
+                (param, &have_min, &have_max, &minimum, &maximum,
+                &num_values, &valid_ints);
+            hv_stores(param_hv, "type", newSVpvs("integer"));
+            if (have_min)
+                hv_stores(param_hv, "minimum", newSViv(minimum));
+            if (have_max)
+                hv_stores(param_hv, "maximum", newSViv(maximum));
+            if (num_values) {
+                AV *values_av = newAV();
+                int i;
+                for (i = 0; i < num_values; ++i)
+                    av_push(values_av, newSViv(valid_ints[i]));
+                hv_stores(param_hv, "values", newRV_noinc((SV*)values_av));
+            }
+            err = heif_encoder_get_parameter_integer(enc, name, &def);
+            if (err.code == heif_error_Ok)
+                hv_stores(param_hv, "default", newSViv(def));
+        }
+        break;
+
+    case heif_encoder_parameter_type_boolean:
+        {
+            int def;
+            hv_stores(param_hv, "type", newSVpvs("boolean"));
+            err = heif_encoder_get_parameter_boolean(enc, name, &def);
+            if (err.code == heif_error_Ok)
+                hv_stores(param_hv, "default", newSVsv(boolSV(def)));
+        }
+        break;
+
+    case heif_encoder_parameter_type_string:
+        {
+            const char * const *valid_strs = NULL;
+            char value[100];
+            hv_stores(param_hv, "type", newSVpvs("string"));
+            err = heif_encoder_parameter_get_valid_string_values(param, &valid_strs);
+            if (err.code == heif_error_Ok && valid_strs) {
+                AV *values_av = newAV();
+                while (*valid_strs) {
+                    av_push(values_av, newSVpv(*valid_strs, 0));
+                    ++valid_strs;
+                }
+                hv_stores(param_hv, "values", newRV_noinc((SV*)values_av));
+            }
+            err = heif_encoder_get_parameter_string(enc, name, value, sizeof(value));
+            if (err.code == heif_error_Ok)
+                hv_stores(param_hv, "default", newSVpv(value, 0));
+        }
+        break;
+
+    default:
+        hv_stores(param_hv, "type", newSVpvs("unknown"));
+        break;
+    }
+
+    return param_hv;
+}
 
 MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF
 
 TYPEMAP: <<HERE
-Imager::File::HEIF::Context	T_PTROBJ
-Imager::File::HEIF::EncoderDescriptor  T_PTROBJ
-Imager::File::HEIF::Encoder  T_PTROBJ
 enum heif_compression_format T_COMP_FORMAT
 
 INPUT
@@ -194,52 +246,57 @@ void
 i_heif_deinit(class)
           C_ARGS:
 
-Imager::File::HEIF::Context
-i_heif_context(class)
-    C_ARGS:
-
 void
-i_heif_encoder_descriptors(class, enum heif_compression_format fmt = heif_compression_undefined)
+i_heif_encoders(class, enum heif_compression_format fmt = heif_compression_undefined)
   PREINIT:
     const struct heif_encoder_descriptor **descs = NULL;
     int count;
     int i;
+    struct heif_context *ctx = heif_context_alloc();
+    HV *enc_stash = gv_stashpv("Imager::File::HEIF::Encoder", TRUE);
+    HV *param_stash = gv_stashpv("Imager::File::HEIF::Encoder::Parameter", TRUE);
   PPCODE:
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
     count = heif_get_encoder_descriptors(fmt, NULL, NULL, 0);
+#else
+    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, NULL, 0);
+#endif
     Newx(descs, count, const struct heif_encoder_descriptor *);
     SAVEFREEPV(descs);
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
     heif_get_encoder_descriptors(fmt, NULL, descs, count);
+#else
+    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, descs, count);
+#endif
     EXTEND(SP, count);
     for (i = 0; i < count; ++i) {
-        SV *sv = sv_newmortal();
-        sv_setref_pv(sv, "Imager::File::HEIF::EncoderDescriptor",
-            (void *)descs[i]);
-        PUSHs(sv);
+        struct heif_error err;
+        struct heif_encoder *enc = NULL;
+        const struct heif_encoder_descriptor *desc = descs[i];
+        HV *enchv = newHV();
+        hv_stores(enchv, "id", newSVpv(heif_encoder_descriptor_get_id_name(desc), 0));
+        hv_stores(enchv, "name", newSVpv(heif_encoder_descriptor_get_name(desc), 0));
+        hv_stores(enchv, "compression", newSVpv(i_heif_compression_name(heif_encoder_descriptor_get_compression_format(desc)), 0));
+        hv_stores(enchv, "supports_lossy_compression", newSVsv(boolSV(heif_encoder_descriptor_supports_lossy_compression(desc))));
+        hv_stores(enchv, "supports_lossless_compression", newSVsv(boolSV(heif_encoder_descriptor_supports_lossless_compression(desc))));
+        err = heif_context_get_encoder(ctx, desc, &enc);
+        if (err.code == heif_error_Ok) {
+            const struct heif_encoder_parameter * const *params =
+                heif_encoder_list_parameters(enc);
+            AV *param_av = newAV();
+            while (*params) {
+                av_push(param_av, sv_bless(newRV_noinc((SV*)make_param_hv(aTHX_ enc, *params)), param_stash));
+                ++params;
+            }
+            hv_stores(enchv, "parameters", newRV_noinc((SV*)param_av));
+            heif_encoder_release(enc);
+        }
+        else {
+            hv_stores(enchv, "error", newSVpv(err.message, 0));
+        }
+        PUSHs(sv_2mortal(sv_bless(newRV_noinc((SV*)enchv), enc_stash)));
     }
-    
 
-MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF::Context PREFIX = i_heif_context_
-
-void
-i_heif_context_DESTROY(Imager::File::HEIF::Context ctx)
-
-void
-i_heif_context_CLONE_SKIP(...)
-  CODE:
-
-MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF::EncoderDescriptor PREFIX = heif_encoder_descriptor_
-
-const char *
-heif_encoder_descriptor_get_id_name(Imager::File::HEIF::EncoderDescriptor enc)
-
-const char *
-heif_encoder_descriptor_get_name(Imager::File::HEIF::EncoderDescriptor enc)
-
-void
-i_heif_encdesc_CLONE_SKIP(...)
-  CODE:
-
-# no need for DESTROY
 
 BOOT:
 	PERL_INITIALIZE_IMAGER_CALLBACKS;

@@ -1,7 +1,10 @@
 package Imager::File::HEIF;
 use strict;
 use Imager;
-use vars qw($VERSION @ISA);
+use Imager::File::HEIF::Encoder;
+use Imager::File::HEIF::Encoder::Parameter;
+
+our $VERSION;
 
 BEGIN {
   $VERSION = "0.005";
