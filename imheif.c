@@ -15,8 +15,8 @@ compression_names[] =
   { heif_compression_HEVC, "hevc" },
   { heif_compression_AVC, "avc" },
   { heif_compression_JPEG, "jpeg" },
-#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   { heif_compression_AV1, "av1" },
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   { heif_compression_VVC, "vvc" },
   { heif_compression_EVC, "evc" },
   { heif_compression_JPEG2000, "jpeg2000" },
@@ -651,10 +651,10 @@ i_heif_compression_name(enum heif_compression_format fmt) {
   case heif_compression_JPEG:
     return "jpeg";
     
-#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   case heif_compression_AV1:
     return "av1";
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   case heif_compression_VVC:
     return "vvc";
 
