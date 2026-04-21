@@ -19,4 +19,12 @@ char const * i_heif_buildversion(void);
 void i_heif_init(void);
 void i_heif_deinit(void);
 
+struct compression_names_t {
+  enum heif_compression_format fmt;
+  const char *name;
+};
+
+const struct compression_names_t *
+i_heif_compression_names(size_t *count);
+
 #endif

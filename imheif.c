@@ -8,6 +8,39 @@
 
 #define my_size_t_max (~(size_t)0)
 
+static const struct compression_names_t
+compression_names[] =
+{
+  { heif_compression_undefined, "undefined" },
+  { heif_compression_HEVC, "hevc" },
+  { heif_compression_AVC, "avc" },
+  { heif_compression_JPEG, "jpeg" },
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
+  { heif_compression_AV1, "av1" },
+  { heif_compression_VVC, "vvc" },
+  { heif_compression_EVC, "evc" },
+  { heif_compression_JPEG2000, "jpeg2000" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 16, 0)
+  { heif_compression_uncompressed, "uncompressed" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 17, 0)
+  { heif_compression_mask, "mask" },
+#endif
+#if LIBHEIF_HAVE_VERSION(1, 18, 0)
+  { heif_compression_HTJ2K, "jpeg2000ht" },
+#endif
+};
+
+static const size_t compression_name_count =
+    sizeof(compression_names) / sizeof(compression_names[0]);
+
+const struct compression_names_t *
+i_heif_compression_names(size_t *count) {
+  *count = compression_name_count;
+  return compression_names;
+}
+
 static int heif_init_done = 0;
 
 static i_img *
@@ -764,29 +797,17 @@ dump_encoder(struct heif_encoder *enc) {
   }
 }
 
-void
-i_heif_dump_encoders(void) {
-  struct heif_error err;
-  struct heif_context *ctx = heif_context_alloc();
-
-  if (!ctx) {
-    printf("Failed to allocate heif context\n");
-    return;
-  }
+static int
+dump_encoder_type(struct heif_context *ctx,
+                  enum heif_compression_format fmt) {
+#define MAX_ENCODERS 20
+  const struct heif_encoder_descriptor *descs[MAX_ENCODERS];
 #if LIBHEIF_HAVE_VERSION(1, 15, 0)
-  int count = heif_get_encoder_descriptors(heif_compression_undefined, NULL, NULL, 0);
+  int count = heif_get_encoder_descriptors(fmt, NULL, descs, MAX_ENCODERS);
 #else
-  int count = heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, NULL, 0);
+  int count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, descs, MAX_ENCODERS);
 #endif
   int i;
-  const struct heif_encoder_descriptor **descs = mymalloc(sizeof(struct heif_encoder_descriptor *) * count);
-#if LIBHEIF_HAVE_VERSION(1, 15, 0)
-  heif_get_encoder_descriptors(heif_compression_undefined, NULL, descs, count);
-#else
-  heif_context_get_encoder_descriptors(ctx, heif_compression_undefined, NULL, descs, count);
-#endif
-  if (count == 0)
-    printf("No encoders found\n");
 
   for (i = 0; i < count; ++i) {
     const struct heif_encoder_descriptor *desc = descs[i];
@@ -808,7 +829,23 @@ i_heif_dump_encoders(void) {
       printf("** Could not make encoder\n");
     }
   }
-  myfree(descs);
+  return count;
+}
+
+void
+i_heif_dump_encoders(void) {
+  struct heif_context *ctx = heif_context_alloc();
+  int total;
+
+  if (!ctx) {
+    printf("Failed to allocate heif context\n");
+    return;
+  }
+  total = dump_encoder_type(ctx, heif_compression_undefined);
+
+  if (total == 0)
+    printf("No encoders found\n");
+  
   heif_context_free(ctx);
 }
 

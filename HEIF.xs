@@ -22,42 +22,15 @@ max_threads(pTHX) {
   }
 }
 
-
-static struct compression_names_t {
-  enum heif_compression_format fmt;
-  const char *name;
-} compression_names[] =
-{
-  { heif_compression_undefined, "undefined" },
-  { heif_compression_HEVC, "hevc" },
-  { heif_compression_AVC, "avc" },
-  { heif_compression_JPEG, "jpeg" },
-#if LIBHEIF_HAVE_VERSION(1, 15, 0)
-  { heif_compression_AV1, "av1" },
-  { heif_compression_VVC, "vvc" },
-  { heif_compression_EVC, "evc" },
-  { heif_compression_JPEG2000, "jpeg2000" },
-#endif
-#if LIBHEIF_HAVE_VERSION(1, 16, 0)
-  { heif_compression_uncompressed, "uncompressed" },
-#endif
-#if LIBHEIF_HAVE_VERSION(1, 17, 0)
-  { heif_compression_mask, "mask" },
-#endif
-#if LIBHEIF_HAVE_VERSION(1, 18, 0)
-  { heif_compression_HTJ2K, "jpeg2000ht" },
-#endif
-};
-
-static const size_t compression_name_count =
-    sizeof(compression_names) / sizeof(compression_names[0]);
-
 static enum heif_compression_format
 xi_heif_compression_format(pTHX_ const char *name) {
+    size_t count;
+    struct compression_names_t const *names =
+        i_heif_compression_names(&count);
     size_t i;
-    for (i = 0; i < compression_name_count; ++i) {
-        if (strcmp(compression_names[i].name, name) == 0) {
-            return compression_names[i].fmt;
+    for (i = 0; i < count; ++i) {
+        if (strcmp(names[i].name, name) == 0) {
+            return names[i].fmt;
         }
     }
     croak("unknown HEIF compression type '%s'", name);
@@ -137,6 +110,8 @@ make_param_hv(pTHX_ struct heif_encoder *enc,
 
     return param_hv;
 }
+
+#define MAX_ENCODERS 20
 
 MODULE = Imager::File::HEIF  PACKAGE = Imager::File::HEIF
 
@@ -249,7 +224,7 @@ i_heif_deinit(class)
 void
 i_heif_encoders(class, enum heif_compression_format fmt = heif_compression_undefined)
   PREINIT:
-    const struct heif_encoder_descriptor **descs = NULL;
+    const struct heif_encoder_descriptor *descs[MAX_ENCODERS];
     int count;
     int i;
     struct heif_context *ctx = heif_context_alloc();
@@ -257,16 +232,9 @@ i_heif_encoders(class, enum heif_compression_format fmt = heif_compression_undef
     HV *param_stash = gv_stashpv("Imager::File::HEIF::Encoder::Parameter", TRUE);
   PPCODE:
 #if LIBHEIF_HAVE_VERSION(1, 15, 0)
-    count = heif_get_encoder_descriptors(fmt, NULL, NULL, 0);
+    count = heif_get_encoder_descriptors(fmt, NULL, descs, MAX_ENCODERS);
 #else
-    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, NULL, 0);
-#endif
-    Newx(descs, count, const struct heif_encoder_descriptor *);
-    SAVEFREEPV(descs);
-#if LIBHEIF_HAVE_VERSION(1, 15, 0)
-    heif_get_encoder_descriptors(fmt, NULL, descs, count);
-#else
-    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, descs, count);
+    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, descs, MAX_ENCODERS);
 #endif
     EXTEND(SP, count);
     for (i = 0; i < count; ++i) {
