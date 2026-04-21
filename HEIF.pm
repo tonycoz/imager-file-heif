@@ -185,7 +185,7 @@ commercial licenses.
 To install Imager::File::HEIF you need Imager installed and you need
 C<libheif>, C<libde265> and C<libx265> and their development files.
 
-Imager::File::HEIF requires at least version 1.9.0 of C<libheif>, but
+Imager::File::HEIF requires at least version 1.11.0 of C<libheif>, but
 in general you want the very latest version you can get.
 Imager::File::HEIF has been tested up to version 1.17.3 of C<libheif>.
 

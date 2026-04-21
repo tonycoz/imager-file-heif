@@ -10,6 +10,9 @@
    nearly all color images.
    https://github.com/tonycoz/imager-file-heif/issues/6
 
+ - require libheif 1.11.0 or later
+   I don't feel a need to deal with older API differences in 1.9
+
  - github action:
 
    - enable Imager logs and output the logs as an artifact

@@ -17,8 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         LIBHEIF_RELEASE:
-          - release: "1.9.0"
-          - release: "1.9.1"
           - release: "1.11.0"
           - release: "1.12.0"
           - release: "1.13.0"
@@ -60,7 +58,7 @@ jobs:
             # some versions don't find the de265 plugin
             # this still uses a lot of ignored options
             case "${{ matrix.LIBHEIF_RELEASE.release }}" in
-            1.{9,11,12,13}.*)
+            1.{11,12,13}.*)
               options=""
               ;;
             1.{14,15,16}.*)
