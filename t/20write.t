@@ -115,4 +115,27 @@ SKIP:
   }
 }
 
+SKIP:
+{
+  # look for a non-HEVC encoder
+  my ($enc) = grep $_->compression ne "hevc", Imager::File::HEIF->encoders;
+  $enc or skip "only hevc available", 1;
+  my $cmp = test_image();
+  my $data;
+  note "compression format ", $enc->compression;
+  ok($cmp->write(data => \$data, type => "heif",
+                 heif_compression => $enc->compression),
+     "write with non-HEVC compression");
+  my $res = Imager->new;
+  # we might not have a decoder for this, even if we have an
+  # encoder... fix once we can list decoders
+  ok($res->read(data => \$data, type => "heif"),
+     "read it back again");
+  is($res->getwidth, $cmp->getwidth, "check width");
+  is($res->getheight, $cmp->getheight, "check height");
+  is($res->getchannels, $cmp->getchannels, "check channels");
+  # this random format might produce worse results than hevc
+  is_image_similar($res, $cmp, 10_000_000, "check image matches roughly");
+}
+
 done_testing();
