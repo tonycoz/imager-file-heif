@@ -498,19 +498,63 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     int quality;
     enum heif_compression_format fmt = heif_compression_HEVC;
     char compression_name[100];
+    int compression_set;
+    char encoder_name[100];
+    int encoder_set;
 
-    if (i_tags_get_string(&im->tags, "heif_compression", 0, compression_name, sizeof(compression_name))) {
+    compression_set =
+      i_tags_get_string(&im->tags, "heif_compression", 0,
+                        compression_name, sizeof(compression_name));
+    if (compression_set) {
       if (!get_compression_from_name(compression_name, &fmt)) {
         i_push_errorf(0, "Unknown heif compression '%s'",
                       compression_name);
         goto fail;
       }
+      /* this would be dumb */
+      if (fmt == heif_compression_undefined) {
+        i_push_errorf(0, "compression not valid for encoding '%s'",
+                      compression_name);
+        goto fail;
+        
+      }
     }
-
-    err = heif_context_get_encoder_for_format(ctx, fmt, &encoder);
-    if (err.code != heif_error_Ok) {
-      i_push_errorf(0, "heif error %s (%d)", err.message, (int)err.code);
-      goto fail;
+    encoder_set =
+      i_tags_get_string(&im->tags, "heif_encoder", 0,
+                        encoder_name, sizeof(encoder_name));
+    if (encoder_set) {
+      const struct heif_encoder_descriptor *desc = NULL;
+      if (!compression_set)
+        fmt = heif_compression_undefined;
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
+      int count = heif_get_encoder_descriptors(fmt, encoder_name, &desc, 1);
+#else
+      int count = heif_context_get_encoder_descriptors(ctx, fmt, encoder_name, &desc, 1);
+#endif
+      if (count == 0) {
+        if (compression_set) {
+          i_push_errorf(0, "no encoder named '%s' found with compression '%s'",
+                        encoder_name, compression_name);
+        }
+        else {
+          i_push_errorf(0, "no encoder named '%s' found",
+                        encoder_name);
+        }
+        goto fail;
+      }
+      err = heif_context_get_encoder(ctx, desc, &encoder);
+      if (err.code != heif_error_Ok) {
+        i_push_errorf(0, "cannot get encoder for '%s': %s",
+                      encoder_name, err.message);
+        goto fail;
+      }
+    }
+    else {
+      err = heif_context_get_encoder_for_format(ctx, fmt, &encoder);
+      if (err.code != heif_error_Ok) {
+        i_push_errorf(0, "heif error %s (%d)", err.message, (int)err.code);
+        goto fail;
+      }
     }
 
     if (i_tags_get_int(&im->tags, "heif_lossless", 0, &lossless))
@@ -543,7 +587,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
 
         err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, has_alpha ? 32 : 24);
         if (err.code != heif_error_Ok) {
-          i_push_error(0, "failed to add plane");
+          i_push_errorf(0, "failed to add plane '%s'", err.message);
         failimagergb:
           heif_image_release(him);
           goto fail;
@@ -557,7 +601,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         err = heif_context_encode_image(ctx, him, encoder, options, &him_h);
         heif_encoding_options_free(options);
         if (err.code != heif_error_Ok) {
-          i_push_error(0, "fail to encode");
+          i_push_errorf(0, "fail to encode: %s", err.message);
           goto failimagergb;
         }
         heif_image_release(him);

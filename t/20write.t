@@ -130,12 +130,70 @@ SKIP:
   # we might not have a decoder for this, even if we have an
   # encoder... fix once we can list decoders
   ok($res->read(data => \$data, type => "heif"),
+     "read it back again")
+    or diag $res->errstr;
+  is($res->getwidth, $cmp->getwidth, "check width");
+  is($res->getheight, $cmp->getheight, "check height");
+  is($res->getchannels, $cmp->getchannels, "check channels");
+  # this random format might produce worse results than hevc
+  is_image_similar($res, $cmp, 10_000_000, "check image matches roughly");
+
+  $cmp = $cmp->copy;
+  note "encoder ", $enc->id;
+  undef $data;
+  ok($cmp->write(data => \$data, type => "heif",
+                 heif_encoder => $enc->id),
+     "write using a specified encoder")
+    or die $cmp->errstr;
+  ok($res->read(data => \$data, type => "heif"),
      "read it back again");
   is($res->getwidth, $cmp->getwidth, "check width");
   is($res->getheight, $cmp->getheight, "check height");
   is($res->getchannels, $cmp->getchannels, "check channels");
   # this random format might produce worse results than hevc
   is_image_similar($res, $cmp, 10_000_000, "check image matches roughly");
+
+  $cmp = $cmp->copy;
+  ok($cmp->write(data => \$data, type => "heif",
+                 heif_encoder => $enc->id,
+                heif_compression => $enc->compression),
+     "write using a specified encoder and compression")
+    or die $cmp->errstr;
+  ok($res->read(data => \$data, type => "heif"),
+     "read it back again");
+  is($res->getwidth, $cmp->getwidth, "check width");
+  is($res->getheight, $cmp->getheight, "check height");
+  is($res->getchannels, $cmp->getchannels, "check channels");
+  # this random format might produce worse results than hevc
+  is_image_similar($res, $cmp, 10_000_000, "check image matches roughly");
+
+  $cmp = $cmp->copy; # strip tags
+  undef $data;
+  ok(!$cmp->write(data => \$data, type => "heif",
+                  heif_encoder => $enc->id,
+                  heif_compression => "hevc"),
+     "fail to write with encoder/compression mismatch");
+  like($cmp->errstr, qr/no encoder named '.*' found with compression '.*'/,
+       "check message");
+}
+{
+  # write with an undefined compression
+  my $cmp = test_image;
+  my $data;
+  ok(!$cmp->write(data => \$data, type => "heif",
+                  heif_compression => "not a compression"),
+     "fail to write with bad compression");
+  like($cmp->errstr, qr/Unknown heif compression 'not a compression'/,
+       "check message");
+
+  # unknown encoder
+  $cmp = $cmp->copy; # strip tags
+  undef $data;
+  ok(!$cmp->write(data => \$data, type => "heif",
+                  heif_encoder => "not an encoder"),
+     "write with unknown encoder");
+  like($cmp->errstr, qr/no encoder named 'not an encoder' found/,
+       "check message");
 }
 
 done_testing();
