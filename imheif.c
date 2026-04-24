@@ -61,8 +61,13 @@ static i_img *
 get_image(struct heif_context *ctx, heif_item_id id) {
   struct heif_error err;
   i_img_dim y;
-
+  /* these are all referenced in the fail block, so initialize
+     early
+  */
+  i_img *img = NULL;
+  struct heif_image *him = NULL;
   struct heif_image_handle *img_handle = NULL;
+
   err = heif_context_get_image_handle(ctx, id, &img_handle);
   if (err.code != heif_error_Ok) {
     i_push_error(0, "failed to get handle");
@@ -103,7 +108,6 @@ get_image(struct heif_context *ctx, heif_item_id id) {
      us a YCbCr image, or an RGB image without alpha when the file has
      alpha.
   */
-  struct heif_image *him = NULL;
   err = heif_decode_image(img_handle, &him, try_cs, try_chroma, NULL);
   if (err.code != heif_error_Ok) {
     i_push_errorf(err.code, "failed to decoded image: %s", err.message);
@@ -145,7 +149,7 @@ get_image(struct heif_context *ctx, heif_item_id id) {
   mm_log((1, "readheif: image (" i_DFp ") %d channels\n",
           i_DFcp(width, height), channels));
 
-  i_img *img = i_img_8_new(width, height, channels);
+  img = i_img_8_new(width, height, channels);
   if (!img) {
     i_push_error(0, "failed to create image");
     goto fail;
