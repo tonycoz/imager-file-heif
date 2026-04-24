@@ -942,7 +942,7 @@ i_heif_dump_decoders(void) {
         dump_decoder_fmt(fmt, compression_names[i].name);
   }
 #else
-  printf("Can't dump decoders for in this version\n");
+  printf("Can't dump decoders for this version\n");
 #endif
 }
 
