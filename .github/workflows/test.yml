@@ -32,7 +32,7 @@ jobs:
       - name: install dependencies cached
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl jq libx264-dev libdav1d-dev
+          packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl jq libx264-dev libdav1d-dev libsvtav1-dev
           version: 1.2
       - name: variables
         run: |
@@ -46,7 +46,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: local
-          key: libheif-${{ matrix.LIBHEIF_RELEASE.release }}-v2
+          key: libheif-${{ matrix.LIBHEIF_RELEASE.release }}-v3
 
       - name: install libheif
         if: steps.cache-libheif.outputs.cache-hit != 'true'
@@ -57,37 +57,36 @@ jobs:
             mkdir build
             # some versions don't find the de265 plugin
             # this still uses a lot of ignored options
-            case "${{ matrix.LIBHEIF_RELEASE.release }}" in
-            1.{11,12,13}.*)
+            cmake -LAH
+            release="${{ matrix.LIBHEIF_RELEASE.release }}"
+            echo release=$release
+            case "$release" in
+            1.11.*|1.12.*|1.13.*)
+              # everything it finds is on by default
               options=""
               ;;
-            1.{14,15,16}.*)
-              options="-DWITH_AOM_DECODER_PLUGIN=ON \
-                -DWITH_AOM_ENCODER_PLUGIN=ON \
+            1.14.*|1.15.*)
+              options="-DWITH_AOM_DECODER=ON \
+                -DWITH_AOM_ENCODER=ON \
                 -DWITH_DAV1D=ON \
-                -DWITH_DAV1D_PLUGIN=ON \
-                -DWITH_HEADER_COMPRESSION=ON \
-                -DWITH_FFMPEG_DECODER=ON \
-                -DWITH_FFMPEG_DECODER_PLUGIN=ON \
-                -DWITH_JPEG_DECODER=ON \
-                -DWITH_JPEG_DECODER_PLUGIN=ON \
-                -DWITH_JPEG_ENCODER=ON \
-                -DWITH_JPEG_ENCODER_PLUGIN=ON \
-                -DWITH_KVAZAAR=ON \
-                -DWITH_KVAZAAR_PLUGIN=ON \
+                -DWITH_DEFLATE_HEADER_COMPRESSION=ON \
                 -DWITH_LIBDE265=ON \
-                -DWITH_LIBSHARPYUV=ON \
-                -DWITH_OpenJPEG_DECODER=ON \
-                -DWITH_OpenJPEG_DECODER_PLUGIN=ON \
-                -DWITH_OpenJPEG_ENCODER=ON \
-                -DWITH_OpenJPEG_ENCODER_PLUGIN=ON \
                 -DWITH_RAV1E=ON \
-                -DWITH_RAV1E_PLUGIN=ON \
-                -DWITH_SvtEnc=ON \
-                -DWITH_SvtEnc_PLUGIN=ON \
-                -DWITH_UNCOMPRESSED_CODEC=ON"
+                -DWITH_SvtEnc=ON"
+              ;;
+            1.16.*)
+              # add "uncompressed"
+              options="-DWITH_AOM_DECODER=ON \
+                -DWITH_AOM_ENCODER=ON \
+                -DWITH_DAV1D=ON \
+                -DWITH_DEFLATE_HEADER_COMPRESSION=ON \
+                -DWITH_LIBDE265=ON \
+                -DWITH_RAV1E=ON \
+                -DWITH_SvtEnc=ON
+                -DWITH_COMPRESSED_CODEC=ON"
               ;;
             *)
+              echo default
               options="-DWITH_AOM_DECODER_PLUGIN=ON \
                 -DWITH_AOM_ENCODER_PLUGIN=ON \
                 -DWITH_DAV1D=ON \
@@ -103,6 +102,8 @@ jobs:
                 -DWITH_KVAZAAR_PLUGIN=ON \
                 -DWITH_LIBDE265=ON \
                 -DWITH_LIBSHARPYUV=ON \
+                -DWITH_OpenH264_DECODER=ON \
+                -DWITH_OpenH264_ENCODER=ON \
                 -DWITH_OpenJPEG_DECODER=ON \
                 -DWITH_OpenJPEG_DECODER_PLUGIN=ON \
                 -DWITH_OpenJPEG_ENCODER=ON \
@@ -114,6 +115,7 @@ jobs:
                 -DWITH_UNCOMPRESSED_CODEC=ON"
               ;;
             esac
+            echo options=$options
             cmake --install-prefix "$INSTALL_PATH" -B build $options
             cd build
             make
@@ -127,6 +129,7 @@ jobs:
       - name: libheif tools
         run: |
             # 1.11 and earlier don't install tools
+            echo LD_LIBRARY_PATH=$LD_LIBRARY_PATH
             [ -x $INSTALL_PATH/bin/heif-enc ] && heif-enc --list-encoders || true
             [ -x $INSTALL_PATH/bin/heif-dec ] && heif-dec --list-decoders || true
             [ -x $INSTALL_PATH/bin/heif-convert ] && heif-convert --list-decoders || true
