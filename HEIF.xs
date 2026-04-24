@@ -214,6 +214,13 @@ i_heif_have_decoder(class, enum heif_compression_format fmt)
   CODE:
     if (fmt == heif_compression_undefined)
       croak("can't decode undefined");
+#if !LIBHEIF_HAVE_VERSION(1, 13, 0)
+    /* when testing 1.12.x and earlier couldn't decode the
+       AVIFs it created
+    */
+    if (fmt == heif_compression_AV1)
+       XSRETURN_NO;
+#endif
     RETVAL = heif_have_decoder_for_format(fmt);
   OUTPUT: RETVAL
 
