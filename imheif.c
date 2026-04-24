@@ -900,6 +900,8 @@ i_heif_dump_encoders(void) {
   heif_context_free(ctx);
 }
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
+
 static void
 dump_decoder(const struct heif_decoder_descriptor *desc,
              enum heif_compression_format fmt,
@@ -924,14 +926,20 @@ dump_decoder_fmt(enum heif_compression_format fmt, const char *fmt_name) {
   }
 }
 
+#endif
+
 void
 i_heif_dump_decoders(void) {
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   size_t i;
   for (i = 0; i < compression_name_count; ++i) {
     enum heif_compression_format fmt = compression_names[i].fmt;
     if (fmt != heif_compression_undefined)
         dump_decoder_fmt(fmt, compression_names[i].name);
   }
+#else
+  printf("Can't dump decoders for in this version\n");
+#endif
 }
 
 char const *

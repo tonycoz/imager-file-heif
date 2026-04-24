@@ -118,8 +118,10 @@ SKIP:
 SKIP:
 {
   # look for a non-HEVC encoder
-  my ($enc) = grep $_->compression ne "hevc", Imager::File::HEIF->encoders;
-  $enc or skip "only hevc available", 1;
+  my ($enc) = grep $_->compression ne "hevc"
+    && Imager::File::HEIF->have_decoder($_->compression),
+    Imager::File::HEIF->encoders;
+  $enc or skip "only hevc available for both encode and decode", 1;
   my $cmp = test_image();
   my $data;
   note "compression format ", $enc->compression;

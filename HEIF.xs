@@ -209,6 +209,27 @@ void
 i_heif_dump_decoders(class)
           C_ARGS:
 
+bool
+i_heif_have_decoder(class, enum heif_compression_format fmt)
+  CODE:
+    if (fmt == heif_compression_undefined)
+      croak("can't decode undefined");
+    RETVAL = heif_have_decoder_for_format(fmt);
+  OUTPUT: RETVAL
+
+void
+i_heif_compression_names(class)
+  PREINIT:
+    size_t count;
+    struct compression_names_t const *names =
+        i_heif_compression_names(&count);
+    size_t i;
+  PPCODE:
+    EXTEND(SP, count);
+    /* 0 is "undefined" */
+    for (i = 1; i < count; ++i)
+      PUSHs(sv_2mortal(newSVpv(names[i].name, 0)));
+
 const char *
 i_heif_libversion(class)
           C_ARGS:
