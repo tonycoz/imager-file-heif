@@ -178,7 +178,10 @@ jobs:
       - name: dump encoders
         run: |
             cd main
+            echo "Encoders:"
             perl -Mblib -MImager::File::HEIF -e 'Imager::File::HEIF->dump_encoders'
+            echo "Decoders:"
+            perl -Mblib -MImager::File::HEIF -e 'Imager::File::HEIF->dump_decoders'
       - name: test
         run: |
             cd main
