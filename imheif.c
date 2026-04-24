@@ -900,6 +900,40 @@ i_heif_dump_encoders(void) {
   heif_context_free(ctx);
 }
 
+static void
+dump_decoder(const struct heif_decoder_descriptor *desc,
+             enum heif_compression_format fmt,
+             const char *fmt_name) {
+  printf("%s (%s):\n", heif_decoder_descriptor_get_name(desc),
+         heif_decoder_descriptor_get_id_name(desc));
+  printf("  Format: %s\n", fmt_name);
+}
+
+/* the API doesn't let us fetch the compression type for a decoder
+   so we need to search each compression individually
+ */
+static void
+dump_decoder_fmt(enum heif_compression_format fmt, const char *fmt_name) {
+#define MAX_DECODERS 50
+  const struct heif_decoder_descriptor *descs[MAX_DECODERS];
+  int count = heif_get_decoder_descriptors(fmt, descs, MAX_DECODERS);
+
+  int i;
+  for (i = 0; i < count; ++i) {
+    dump_decoder(descs[i], fmt, fmt_name);
+  }
+}
+
+void
+i_heif_dump_decoders(void) {
+  size_t i;
+  for (i = 0; i < compression_name_count; ++i) {
+    enum heif_compression_format fmt = compression_names[i].fmt;
+    if (fmt != heif_compression_undefined)
+        dump_decoder_fmt(fmt, compression_names[i].name);
+  }
+}
+
 char const *
 i_heif_libversion(void) {
   static char buf[100];

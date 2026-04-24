@@ -11,6 +11,8 @@ undef_int i_writeheif_multi(io_glue *ig, i_img **imgs, int count);
 
 void
 i_heif_dump_encoders(void);
+void
+i_heif_dump_decoders(void);
 const char *
 i_heif_compression_name(enum heif_compression_format fmt);
 

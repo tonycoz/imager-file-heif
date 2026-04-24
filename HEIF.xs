@@ -205,6 +205,10 @@ void
 i_heif_dump_encoders(class)
           C_ARGS:
 
+void
+i_heif_dump_decoders(class)
+          C_ARGS:
+
 const char *
 i_heif_libversion(class)
           C_ARGS:
