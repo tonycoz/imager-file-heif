@@ -130,7 +130,7 @@ SKIP:
   # we might not have a decoder for this, even if we have an
   # encoder... fix once we can list decoders
   ok($res->read(data => \$data, type => "heif"),
-     "read it back again")
+     "read it back again ".$enc->compression)
     or diag $res->errstr;
   is($res->getwidth, $cmp->getwidth, "check width");
   is($res->getheight, $cmp->getheight, "check height");
