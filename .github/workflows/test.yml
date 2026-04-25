@@ -182,7 +182,7 @@ jobs:
             perl -Mblib -MImager::File::HEIF -e 'Imager::File::HEIF->dump_encoders'
             echo "Decoders:"
             perl -Mblib -MImager::File::HEIF -e 'Imager::File::HEIF->dump_decoders'
-            perl -Mblib -MImager::File::HEIF -le 'print "$_: ", Imager::File::HEIF->have_decoder($_) ? "Y" : "N" for Imager::File::HEIF->compression_names'
+            perl -Mblib -MImager::File::HEIF -le 'print "$_: ", Imager::File::HEIF->have_decoder_for($_) ? "Y" : "N" for Imager::File::HEIF->compression_names'
       - name: test
         run: |
             cd main

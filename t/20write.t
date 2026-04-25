@@ -119,7 +119,7 @@ SKIP:
 {
   # look for a non-HEVC encoder
   my ($enc) = grep $_->compression ne "hevc"
-    && Imager::File::HEIF->have_decoder($_->compression),
+    && Imager::File::HEIF->have_decoder_for($_->compression),
     Imager::File::HEIF->encoders;
   $enc or skip "only hevc available for both encode and decode", 1;
   my $cmp = test_image();
@@ -196,6 +196,22 @@ SKIP:
      "write with unknown encoder");
   like($cmp->errstr, qr/no encoder named 'not an encoder' found/,
        "check message");
+}
+
+SKIP:
+{
+  ok(Imager::File::HEIF->have_encoder_for("hevc"),
+     "yes, we have a HEVC encoder");
+  my %comp = map {$_ => 1 }
+    grep $_ ne "undefined", Imager::File::HEIF->compression_names;
+  for my $enc (Imager::File::HEIF->encoders) {
+    delete $comp{$enc->compression};
+  }
+  %comp
+    or skip "Amazingly, you can use all compression methods", 1;
+  my ($comp) = keys %comp; # we can't compress this
+  ok(!Imager::File::HEIF->have_encoder_for($comp),
+     "can't encode $comp");
 }
 
 done_testing();

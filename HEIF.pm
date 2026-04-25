@@ -161,6 +161,98 @@ respectively.
 In practice C<libx265> still leaves a lot of memory leaked in my
 testing.
 
+=item dump_encoders
+
+  Imager::File::HEIF->dump_encoders
+
+Dump information about each encoder configured for C<libheif> to
+standard output.  See the C</encoders> method for programmatic access.
+
+For example:
+
+  265 HEVC encoder (4.1+1-1d117be) (x265):
+    Format: hevc
+    Lossless: Yes
+    Lossy: Yes
+    Parameters:
+      quality (int): 0 ... 100 (default 50)
+      lossless (boolean): (default false)
+      preset (str): "ultrafast" "superfast" "veryfast" "faster" "fast" "medium" "slow" "slower" "veryslow" "placebo" (default "slow")
+      tune (str): "psnr" "ssim" "grain" "fastdecode" (default "ssim")
+      tu-intra-depth (int): 1 ... 4 (default 2)
+      complexity (int): 0 ... 100 (default 0)
+      chroma (str): "420" "422" "444" (default "420")
+
+The first line for each is a descriptive name of the encoder followed
+by the identifier for that encoder, which can be supplied as
+C<heif_encoder> when writing an image.
+
+C<Format> is the compression supported by this encoder.
+
+C<Lossless> reports whether the encoder supports lossless encoding.
+
+C<Lossy> reports whether the encoder supports lossy encoding.
+
+C<Parameters> lists the paremeters supported by this encoder, though
+these aren't useful with Imager::File::HEIF yet.
+
+=item dump_decoders
+
+  Imager::File::HEIF->dump_decoders
+
+Dump information about each encoder.  This provides very little
+information and may list a decoder more than once if it supports more
+than one (de-)compression.
+
+  libde265 HEVC decoder, version 1.0.15 (libde265):
+    Format: hevc
+  FFMPEG HEVC decoder 7.1.3-0+deb13u1 (ffmpeg):
+    Format: hevc
+  libjpeg-turbo 2.1.5 (libjpeg 6.2) (jpeg):
+    Format: jpeg
+
+=item have_decoder_for($compression)
+
+  if (Imager::File::HEIF->have_decoder_for("jpeg")) {
+    ...
+
+Returns true if C<libheif> supports decoding the given compression
+type.  Throws an exception for a compression type that this version of
+C<libheif> doesn't support.
+
+=item have_encoder_for($compression)
+
+  if (Imager::File::HEIF->have_encoder_for("jpeg")) {
+    ...
+
+Returns true if C<libheif> supports encoding the given compression
+type.  Throws an exception for a compression type that this version of
+C<libheif> doesn't support.
+
+=item compression_names
+
+Returns a list of compression names suitable for the have_encoder_for,
+have_decoder_for and encoders methods, or for the C<heif_compression>
+write parameter.
+
+This includes the C<"undefined"> (not the perl C<undef>) method only
+accepted by the L</encoders> method.
+
+=item encoders
+
+=item encoders($compression)
+
+Returns a list of L<Imager::File::HEIF::Encoder> objects, which
+provides information about each encoder the C<libheif>
+Imager::File::HEIF was built against.
+
+If C<$compression> is supplied only decoders supporting that
+compression are returned.  This defaults to C<"undefined"> (not the
+perl C<undef>) which returns all encoders.
+
+If an unknown compression name is supplied this method will throw an
+exception.
+
 =back
 
 =head1 PATENTS
@@ -187,7 +279,7 @@ C<libheif>, C<libde265> and C<libx265> and their development files.
 
 Imager::File::HEIF requires at least version 1.11.0 of C<libheif>, but
 in general you want the very latest version you can get.
-Imager::File::HEIF has been tested up to version 1.17.3 of C<libheif>.
+Imager::File::HEIF has been tested up to version 1.21.2 of C<libheif>.
 
 1.14 through 1.16 need C<LIBDE265> support installed as part of the
 library, not as a plugin.
@@ -205,12 +297,31 @@ C<heif_lossless> - if non-zero the image is compressed in "lossless"
 mode.  Note that in both lossy and lossless modes the image is
 converted from the RGB colorspace to the YCbCr colorspace, which will
 lose information.  In lossless mode the C<heif_quality> value is
-ignored and irrelevant.  Default: 0 (lossy compression is used.)
+ignored and irrelevant.  Default: set by the C<libheif> encoder.
 
 =item *
 
 C<heif_quality> - a value from 0 to 100 representing the quality of
-lossy compression.  Default: 80.
+lossy compression.  Default: set by the C<libheif> encoder.
+
+=item *
+
+C<heif_compression> - the compression type to use, this defaults to
+"hevc".  The values supported depend on the version of C<libheif> and
+how it was built.  You can use different compression methods for
+different images in a multi-image file, but don't be too surprised if
+readers fail to read it.
+
+Using a compression other than C<hevc> with the C<.heif> extension may
+confuse other software.
+
+=item *
+
+C<heif_encoder> - the identifier of the encoder to use, this also sets
+the compression to use, if you also supply C<heif_compression> and it
+doesn't match the compression used by this encoder writing will fail.
+Default: an encoder is selected by C<libheif> based on the compression
+selected.
 
 =back
 
@@ -269,11 +380,11 @@ Everything else.
 
 =head1 AUTHOR
 
-Tony Cook <tonyc@cpan.org>
+Tony Cook <tony@develop-help.com>
 
 =head1 SEE ALSO
 
-Imager, Imager::Files.
+L<Imager>, L<Imager::Files>.
 
 https://en.wikipedia.org/wiki/High_Efficiency_Image_File_Format
 

@@ -210,7 +210,7 @@ i_heif_dump_decoders(class)
           C_ARGS:
 
 bool
-i_heif_have_decoder(class, enum heif_compression_format fmt)
+i_heif_have_decoder_for(class, enum heif_compression_format fmt)
   CODE:
     if (fmt == heif_compression_undefined)
       croak("can't decode undefined");
@@ -222,6 +222,26 @@ i_heif_have_decoder(class, enum heif_compression_format fmt)
        XSRETURN_NO;
 #endif
     RETVAL = heif_have_decoder_for_format(fmt);
+  OUTPUT: RETVAL
+
+bool
+i_heif_have_encoder_for(class, enum heif_compression_format fmt)
+  PREINIT:
+    const struct heif_encoder_descriptor *descs[MAX_ENCODERS];
+    int count;
+#if !LIBHEIF_HAVE_VERSION(1, 15, 0)
+    struct heif_context *ctx = heif_context_alloc();
+#endif
+  CODE:
+    if (fmt == heif_compression_undefined)
+      croak("can't encode undefined");
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
+    count = heif_get_encoder_descriptors(fmt, NULL, descs, MAX_ENCODERS);
+#else
+    count = heif_context_get_encoder_descriptors(ctx, fmt, NULL, descs, MAX_ENCODERS);
+    heif_context_free(ctx);
+#endif
+    RETVAL = count != 0;
   OUTPUT: RETVAL
 
 void
@@ -296,7 +316,7 @@ i_heif_encoders(class, enum heif_compression_format fmt = heif_compression_undef
         }
         PUSHs(sv_2mortal(sv_bless(newRV_noinc((SV*)enchv), enc_stash)));
     }
-
+    heif_context_free(ctx);
 
 BOOT:
 	PERL_INITIALIZE_IMAGER_CALLBACKS;
