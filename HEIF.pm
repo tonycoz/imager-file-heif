@@ -315,6 +315,9 @@ readers fail to read it.
 Using a compression other than C<hevc> with the C<.heif> extension may
 confuse other software.
 
+Be aware this chooses the compression inside the ISOBMFF file,
+selecting C<jpeg> compression does not produce a JPEF/JFIF file.
+
 =item *
 
 C<heif_encoder> - the identifier of the encoder to use, this also sets
@@ -375,6 +378,18 @@ priority.
 =item *
 
 Everything else.
+
+=back
+
+=head1 GLOSSARY
+
+=over
+
+=item ISOBMFF
+
+ISO Base Media File Format - the container file format defined by
+ISO/IEC 14496-12 used by HEIF, AVIF, JPEG2000 and many non-image
+formats. See https://en.wikipedia.org/wiki/ISO_base_media_file_format.
 
 =back
 
