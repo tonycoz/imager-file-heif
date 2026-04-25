@@ -235,7 +235,7 @@ typedef struct {
 static int
 my_read(void *data, size_t size, void *userdata) {
   my_reader_data *rdp = userdata;
-  return i_io_read(rdp->ig, data, size) == size ? 0 : -1;
+  return i_io_read(rdp->ig, data, size) == (ssize_t)size ? 0 : -1;
 }
 
 static int
@@ -269,7 +269,6 @@ i_readheif(io_glue *ig, int page, int max_threads) {
   int total_top_level = 0;
   int id_count;
   heif_item_id *img_ids = NULL;
-  size_t ids_size;
 
   mm_log((1, "readheif: ig %p page %d max_threads %d\n",
           (void *)ig, page, max_threads));
@@ -321,7 +320,7 @@ i_readheif(io_glue *ig, int page, int max_threads) {
     goto fail;
   }
 
-  if (total_top_level > my_size_t_max / sizeof(*img_ids)) {
+  if ((size_t)total_top_level > my_size_t_max / sizeof(*img_ids)) {
     i_push_error(0, "calculation overflow for image id allocation");
     goto fail;
   }
@@ -357,7 +356,6 @@ i_readheif_multi(io_glue *ig, int *count, int max_threads) {
   int total_top_level = 0;
   int id_count;
   heif_item_id *img_ids = NULL;
-  size_t ids_size;
   i_img **result = NULL;
   int img_count = 0;
   int i;
@@ -402,7 +400,7 @@ i_readheif_multi(io_glue *ig, int *count, int max_threads) {
   */
   total_top_level = heif_context_get_number_of_top_level_images(ctx);
 
-  if (total_top_level > my_size_t_max / sizeof(*img_ids)) {
+  if ((size_t)total_top_level > my_size_t_max / sizeof(*img_ids)) {
     i_push_error(0, "calculation overflow for image id allocation");
     goto fail;
   }
@@ -448,8 +446,6 @@ i_writeheif(i_img *im, io_glue *ig) {
   return i_writeheif_multi(ig, &im, 1);
 }
 
-static const int gray_chans[4] = { 0, 0, 0, 1 };
-
 struct write_context {
   io_glue *io;
   char error_buf[80];
@@ -458,11 +454,12 @@ struct write_context {
 static struct heif_error
 write_heif(struct heif_context *ctx, const void *data,
 	   size_t size, void *userdata) {
+  (void)ctx;
   struct write_context *wc = (struct write_context *)userdata;
   io_glue *ig = wc->io;
   struct heif_error err = { heif_error_Ok, heif_suberror_Unspecified, "No error" };
 
-  if (i_io_write(ig, data, size) != size) {
+  if (i_io_write(ig, data, size) != (ssize_t)size) {
     i_push_error(errno, "failed to write");
     err.code = heif_error_Encoding_error;
     err.subcode = heif_suberror_Cannot_write_output_data;
@@ -481,7 +478,6 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   struct heif_encoder *encoder = NULL;
   struct write_context wc;
   int i;
-  int def_quality;
 
   i_clear_error();
 
@@ -495,7 +491,6 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
 
   for (i = 0; i < count; ++i) {
     i_img *im = imgs[i];
-    int ch;
     int alpha_chan;
     int has_alpha = i_img_alpha_channel(im, &alpha_chan);
     int lossless;
@@ -582,12 +577,8 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         i_img_dim y;
         int stride;
         uint8_t *p;
-        uint8_t *pa;
-        int alpha_stride;
-        int samp_chan;
         struct heif_image_handle *him_h;
         struct heif_encoding_options *options = NULL;
-        int color_chans = i_img_color_channels(im);
 
         err = heif_image_add_plane(him, heif_channel_interleaved, im->xsize, im->ysize, has_alpha ? 32 : 24);
         if (err.code != heif_error_Ok) {
@@ -908,7 +899,6 @@ i_heif_dump_encoders(void) {
 
 static void
 dump_decoder(const struct heif_decoder_descriptor *desc,
-             enum heif_compression_format fmt,
              const char *fmt_name) {
   printf("%s (%s):\n", heif_decoder_descriptor_get_name(desc),
          heif_decoder_descriptor_get_id_name(desc));
@@ -926,7 +916,7 @@ dump_decoder_fmt(enum heif_compression_format fmt, const char *fmt_name) {
 
   int i;
   for (i = 0; i < count; ++i) {
-    dump_decoder(descs[i], fmt, fmt_name);
+    dump_decoder(descs[i], fmt_name);
   }
 }
 
