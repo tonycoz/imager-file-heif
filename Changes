@@ -13,6 +13,31 @@
  - require libheif 1.11.0 or later
    I don't feel a need to deal with older API differences in 1.9
 
+ - you can now set the type of compression used with heif_compression,
+   this defaults to HEVC, but you can also use other ISOBMFF
+   compressions supported by libheif
+
+ - you can select the encoder to use with heif_encoder, which may also
+   select the compression used
+
+ - the defaults for heif_lossless and heif_quality are now set by the
+   libheif encoder.
+
+ - added the dump_encoders() and dump_decoders() methods which dump
+   information about each encoder (detailed) or decoder (minimal)
+
+ - added the encoder() method which returns a list of
+   Imager::File::HEIF::Encoder objects
+
+ - added have_encoder_for() and have_decoder_for() methods which return
+   whether a given compression can be encoded or decoded.
+
+ - added the compression_names method that returns a list of the
+   compression types supported by this version of libheif.  These
+   compression types may or may not have encoders in the current build
+   of libheif, you can test for this with have_encoder_for() and
+   have_decoder_for().
+
  - github action:
 
    - enable Imager logs and output the logs as an artifact
