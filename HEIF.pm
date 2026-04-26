@@ -193,8 +193,8 @@ C<Lossless> reports whether the encoder supports lossless encoding.
 
 C<Lossy> reports whether the encoder supports lossy encoding.
 
-C<Parameters> lists the paremeters supported by this encoder, though
-these aren't useful with Imager::File::HEIF yet.
+C<Parameters> lists the paremeters supported by this encoder, which
+can be set when writing.
 
 =item dump_decoders
 
@@ -286,8 +286,8 @@ library, not as a plugin.
 
 =head1 CONTROLLING COMPRESSION
 
-You can control compression through two tags (implicitly set on the
-images via write() or write_multi()):
+You can control output through a number of tags, (implicitly set on
+the images via write() or write_multi()):
 
 =over
 
@@ -327,6 +327,30 @@ Default: an encoder is selected by C<libheif> based on the compression
 selected.
 
 =back
+
+Other parameters set by the encoder can also be set by setting a tag
+with that name with a C<heif_> prefix.  You can see a list of
+parameters for each encoder using the dump_encoders() method, or by
+calling the parameters() method on the encoder object returned by the
+encoders() method.
+
+So you can set the C<chroma> with the C<heif_chroma> tag:
+
+  $img->write(..., heif_chroma => "444")...
+
+Parameter names can contain dashes and these are reflected in the tag
+names:
+
+  # from the AOM AV1 encoder
+  $img->write(..., "heif_alpha-quality" => 80) ...
+
+If the encoder has C<quality> or C<lossless> parameters those are
+handled by their dedicated APIs, not via the general "parameter" API.
+
+If setting such a parameter fails, writing will fail.
+
+Unfortunately the only way to see if the parameter was recognized is
+to enable logging and examine the log.
 
 B<WARNING>: from my testing, using the rough measure done by Imager
 i_img_diff(), lossy at 80 quality turned out closer to the original

@@ -85,8 +85,7 @@ Returns true if the encoder supports lossless compression.
 =item parameters
 
 Returns a list of L<Imager::File::HEIF::Encoder::Parameter> objects
-representing the parameters the encoder accepts.  Imager::File::HEIF
-currently doesn't have a use for this.
+representing the parameters the encoder accepts.
 
 =back
 
