@@ -23,6 +23,10 @@
  - the defaults for heif_lossless and heif_quality are now set by the
    libheif encoder.
 
+ - you can now use tags to set encoder parameters, eg, you can
+     $img->write(... heif_chroma => 444)
+   to change the way color is stored.
+
  - added the dump_encoders() and dump_decoders() methods which dump
    information about each encoder (detailed) or decoder (minimal)
 
