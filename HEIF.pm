@@ -342,6 +342,13 @@ C<$Imager::File::HEIF::MaxThreads> to the maximum number of threads to
 use.  If this is negative or not defined the default is used, which is
 defined by C<libheif>.
 
+=head1 BUGS
+
+Imager::File::HEIF have_decoder_for() returns false for C<av1> before
+libheif 1.13, neither Imager::File::HEIF nor the libheif tools were
+able to decode C<av1> encoded files created by the libheif tool, even
+with C<av1> support enabled in libheif.
+
 =head1 TODO
 
 =over
