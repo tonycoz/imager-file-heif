@@ -214,4 +214,35 @@ SKIP:
      "can't encode $comp");
 }
 
+SKIP:
+{
+  my @enc = Imager::File::HEIF->encoders("hevc");
+  $enc[0]->id eq "x265"
+    or skip "need x265 to test parameters", 1;
+  my $data;
+  my $src = test_image();
+  ok($src->write(data => \$data, type => "heif",
+                 heif_chroma => "444"),
+     "write with custom string parameter");
+
+  $data = "";
+  $src = $src->copy;
+  ok(!$src->write(data => \$data, type => "heif",
+                  heif_chroma => "bad chroma"),
+     "fail to write with bad custom string parameter");
+
+  $data = "";
+  $src = $src->copy;
+  ok($src->write(data => \$data, type => "heif",
+                 heif_complexity => 1),
+     "write with custom integer parameter")
+    or diag $src->errstr;
+
+  $data = "";
+  $src = $src->copy;
+  ok(!$src->write(data => \$data, type => "heif",
+                  heif_complexity => 101),
+     "fail to write with bad custom integer parameter");
+}
+
 done_testing();

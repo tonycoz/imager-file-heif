@@ -500,6 +500,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
     int compression_set;
     char encoder_name[100];
     int encoder_set;
+    const struct heif_encoder_parameter* const* params = NULL;
 
     compression_set =
       i_tags_get_string(&im->tags, "heif_compression", 0,
@@ -554,6 +555,62 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         i_push_errorf(0, "heif error %s (%d)", err.message, (int)err.code);
         goto fail;
       }
+    }
+
+    params = heif_encoder_list_parameters(encoder);
+    while (*params) {
+      enum heif_encoder_parameter_type type =
+        heif_encoder_parameter_get_type(*params);
+      const char *name = heif_encoder_parameter_get_name(*params);
+
+      /* handled below */
+      if (strcmp(name, "quality") != 0
+          && strcmp(name, "lossless") != 0) {
+        char fullname[80];
+        int len = snprintf(fullname, sizeof(fullname), "heif_%s", name);
+        if ((size_t)len < sizeof(fullname)) {
+          switch (type) {
+          case heif_encoder_parameter_type_integer:
+          case heif_encoder_parameter_type_boolean:
+            {
+              int val;
+              if (i_tags_get_int(&im->tags, fullname, 0, &val)) {
+                err = heif_encoder_set_parameter_integer(encoder, name, val);
+                if (err.code != heif_error_Ok) {
+                  mm_log((0, "heif: fail set %s to %d: %s\n", name, val,
+                          err.message));
+                  i_push_errorf(0, "error setting %s to %d: %s", fullname,
+                                val, err.message);
+                  goto fail;
+                }
+                mm_log((1, "heif: set %s: %d\n", name, val));
+              }
+            }
+            break;
+
+          case heif_encoder_parameter_type_string:
+            {
+              char val[80];
+              if (i_tags_get_string(&im->tags, fullname, 0, val, sizeof(val))) {
+                err = heif_encoder_set_parameter_string(encoder, name, val);
+                if (err.code != heif_error_Ok) {
+                  mm_log((0, "heif: fail set %s to '%s': %s\n", name, val,
+                          err.message));
+                  i_push_errorf(0, "error setting %s to '%s': %s",
+                                fullname, val, err.message);
+                  goto fail;
+                }
+                mm_log((1, "heif: set %s: '%s'\n", name, val));
+              }
+            }
+            break;
+          }
+        }
+        else {
+          mm_log((0, "Cannot fetch heif parameter '%s': too long", name));
+        }
+      }
+      ++params;
     }
 
     if (i_tags_get_int(&im->tags, "heif_lossless", 0, &lossless))
