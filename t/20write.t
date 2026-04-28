@@ -1,6 +1,7 @@
 #!perl -w
 use strict;
 use Test::More;
+use version;
 
 use Imager::File::HEIF;
 use Imager::Test qw(test_image is_image_similar);
@@ -10,6 +11,7 @@ use lib 't/lib';
 Imager->open_log(log => "testout/20write.log");
 
 my $ver = Imager::File::HEIF->libversion();
+my $over = version->new($ver);
 
 {
   my $im = test_image;
@@ -92,7 +94,10 @@ SKIP:
   is_image_similar($res, $cmp, 10_000, "check image matches roughly");
 }
 
+SKIP:
 { # tags
+  $over >= v1.15.0
+    or skip "need 1.15.0 for aspect ration", 5;
   my $im = test_image();
   my $data;
   ok($im->write(data => \$data, type => "heif",

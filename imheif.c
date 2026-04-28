@@ -476,6 +476,7 @@ write_heif(struct heif_context *ctx, const void *data,
   return err;
 }
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
 static void
 set_ratio(i_img *im, struct heif_image *him) {
   int xres, yres;
@@ -484,6 +485,7 @@ set_ratio(i_img *im, struct heif_image *him) {
     heif_image_set_pixel_aspect_ratio(him, xres, yres);
   }
 }
+#endif
 
 undef_int
 i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
@@ -644,7 +646,9 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         goto fail;
       }
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
       set_ratio(im, him);
+#endif
       /* FIXME: metadata */
       /* FIXME: leaks? */
       {
@@ -692,7 +696,9 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         goto fail;
       }
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
       set_ratio(im, him);
+#endif
       err = heif_image_add_plane(him, heif_channel_Y, im->xsize, im->ysize, 8);
       if (err.code != heif_error_Ok) {
         i_push_errorf(err.code, "failed to add Y plane: %s", err.message);
