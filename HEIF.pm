@@ -284,6 +284,19 @@ Imager::File::HEIF has been tested up to version 1.21.2 of C<libheif>.
 1.14 through 1.16 need C<LIBDE265> support installed as part of the
 library, not as a plugin.
 
+=head1 STANDARD IMAGER TAGS
+
+Imager::File::HEIF supports the C<i_xres> and C<i_yres> tags, but only
+for setting or retrieving the pixel aspect ratio.  As generally a
+photographic or movie format, HEIF doesn't support physical
+resolution, which is generally a print or scan mechanism.
+
+C<i_aspect_only> is ignored on writing, C<i_xres> and C<i_yres> are
+treated as an aspect ratio.
+
+When you read a HEIF image C<i_xres> and C<i_yres> are set from the
+aspect ratio and C<i_aspect_only> is set to 1.
+
 =head1 CONTROLLING COMPRESSION
 
 You can control output through a number of tags, (implicitly set on
@@ -385,10 +398,7 @@ supported completely yet.
 
 =item *
 
-reading metadata (any to read?) I think pixel ratios are available.
-HEIF supports pixel ratios via the C<PixelAspectRatioBox pasp> member
-of C<ItemPropertyContainerBox 'ipco'> but libheif doesn't appear to
-support that.
+reading metadata (any to read?)
 
 =item *
 

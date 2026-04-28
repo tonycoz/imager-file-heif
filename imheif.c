@@ -206,6 +206,12 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
 
+  uint32_t aspect_h, aspect_v;
+  heif_image_get_pixel_aspect_ratio(him, &aspect_h, &aspect_v);
+  i_tags_setn(&img->tags, "i_xres", aspect_h);
+  i_tags_setn(&img->tags, "i_yres", aspect_v);
+  i_tags_setn(&img->tags, "i_aspect_only", 1);
+
   heif_image_release(him);
   heif_image_handle_release(img_handle);
 
@@ -470,6 +476,15 @@ write_heif(struct heif_context *ctx, const void *data,
   return err;
 }
 
+static void
+set_ratio(i_img *im, struct heif_image *him) {
+  int xres, yres;
+  if (i_tags_get_int(&im->tags, "i_xres", 0, &xres)
+      && i_tags_get_int(&im->tags, "i_yres", 0, &yres)) {
+    heif_image_set_pixel_aspect_ratio(him, xres, yres);
+  }
+}
+
 undef_int
 i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
   struct heif_context *ctx = heif_context_alloc();
@@ -628,6 +643,8 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         i_push_errorf(0, "heif error %s (%d)", err.message, (int)err.code);
         goto fail;
       }
+
+      set_ratio(im, him);
       /* FIXME: metadata */
       /* FIXME: leaks? */
       {
@@ -675,6 +692,7 @@ i_writeheif_multi(io_glue *ig, i_img **imgs, int count) {
         goto fail;
       }
 
+      set_ratio(im, him);
       err = heif_image_add_plane(him, heif_channel_Y, im->xsize, im->ysize, 8);
       if (err.code != heif_error_Ok) {
         i_push_errorf(err.code, "failed to add Y plane: %s", err.message);

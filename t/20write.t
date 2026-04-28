@@ -92,6 +92,20 @@ SKIP:
   is_image_similar($res, $cmp, 10_000, "check image matches roughly");
 }
 
+{ # tags
+  my $im = test_image();
+  my $data;
+  ok($im->write(data => \$data, type => "heif",
+                i_xres => 3, i_yres => 2),
+     "write with resolution tags");
+  my $rd = Imager->new;
+  ok($rd->read(data => \$data, type => "heif"),
+     "read it back");
+  is($rd->tags(name => "i_xres"), 3, "i_xres right");
+  is($rd->tags(name => "i_yres"), 2, "i_yres right");
+  is($rd->tags(name => "i_aspect_only"), 1, "i_aspect_only set");
+}
+
 SKIP:
 {
   my @cmp;
