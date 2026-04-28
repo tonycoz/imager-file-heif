@@ -42,6 +42,9 @@
    of libheif, you can test for this with have_encoder_for() and
    have_decoder_for().
 
+ - support fetching and storing the pixel aspect ratio in the i_xres
+   and i_yres tags from libheif 1.15.0 or later.
+
  - github action:
 
    - enable Imager logs and output the logs as an artifact
