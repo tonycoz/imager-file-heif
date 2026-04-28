@@ -403,7 +403,7 @@ reading metadata (any to read?)
 =item *
 
 writing metadata.  We don't seem to have the animation metadata that
-webp does.
+webp does. (image sequences seems to have it)
 
 =item *
 
