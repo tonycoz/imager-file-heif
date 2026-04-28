@@ -206,11 +206,13 @@ get_image(struct heif_context *ctx, heif_item_id id) {
     }
   }
 
+#if LIBHEIF_HAVE_VERSION(1, 15, 0)
   uint32_t aspect_h, aspect_v;
   heif_image_get_pixel_aspect_ratio(him, &aspect_h, &aspect_v);
   i_tags_setn(&img->tags, "i_xres", aspect_h);
   i_tags_setn(&img->tags, "i_yres", aspect_v);
   i_tags_setn(&img->tags, "i_aspect_only", 1);
+#endif
 
   heif_image_release(him);
   heif_image_handle_release(img_handle);
