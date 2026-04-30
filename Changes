@@ -1,4 +1,7 @@
- - accept a main brand of "heix" in addition to "heic" for monochrome
+Imager-File-HEIF 0.006 - 30 Apr 2026
+======================
+
+- accept a main brand of "heix" in addition to "heic" for monochrome
    images.  libheif started producing this brand for monochrome images
    in 1.20 and it seems to be the correct behaviour.  Continue to
    accept "heic" since older libheif produces it.
