@@ -26,19 +26,19 @@ jobs:
         uses: actions/cache@v5
         with:
           path: local
-          key: libheif-${{ libheif_release }}-v3
+          key: libheif-${{ inputs.libheif_release }}-v3
 
       - name: install libheif
         if: steps.cache-libheif.outputs.cache-hit != 'true'
         run: |
-            wget https://github.com/strukturag/libheif/releases/download/v${{ libheif_release }}/libheif-${{ libheif_release }}.tar.gz
-            tar xzf libheif-${{ libheif_release }}.tar.gz
-            cd libheif-${{ libheif_release }}
+            wget https://github.com/strukturag/libheif/releases/download/v${{ inputs.libheif_release }}/libheif-${{ inputs.libheif_release }}.tar.gz
+            tar xzf libheif-${{ inputs.libheif_release }}.tar.gz
+            cd libheif-${{ inputs.libheif_release }}
             mkdir build
             # some versions don't find the de265 plugin
             # this still uses a lot of ignored options
             cmake -LAH
-            release="${{ libheif_release }}"
+            release="${{ inputs.libheif_release }}"
             echo release=$release
             case "$release" in
             1.11.*|1.12.*|1.13.*)
@@ -170,6 +170,6 @@ jobs:
       - name: artifacts
         uses: actions/upload-artifact@v7
         with:
-            name: logs-${{ libheif_release }}
+            name: logs-${{ inputs.libheif_release }}
             path: main/testout/
             retention-days: 7
