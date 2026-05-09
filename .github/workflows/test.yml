@@ -30,7 +30,7 @@ jobs:
           - release: "1.21.2"
     steps:
       - name: install dependencies cached
-        uses: awalsh128/cache-apt-pkgs-action@latest
+        uses: tonycoz/cache-apt-pkgs-action@v1-node-20-warning
         with:
           packages: build-essential libgif-dev libwebp-dev libde265-dev automake autoconf libtool m4 git yasm pkgconf libx265-dev libopenjp2-7-dev libjpeg-turbo8-dev libaom-dev libsvtav1-dev librav1e-dev libopenh264-dev libavcodec-dev libavutil-dev libpng-dev libjpeg-turbo8-dev liblocal-lib-perl jq libx264-dev libdav1d-dev libsvtav1-dev
           version: 1.2
