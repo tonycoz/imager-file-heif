@@ -28,8 +28,6 @@ jobs:
           - release: "1.19.8"
           - release: "1.20.2"
           - release: "1.21.2"
-    steps:
-      - name: some step
-        uses: ./.github/workflows/dotest.yml
-        with:
-          libheif_release: ${{ matrix.LIBHEIF_RELEASE.release }}
+    uses: ./.github/workflows/dotest.yml
+    with:
+      libheif_release: ${{ matrix.LIBHEIF_RELEASE.release }}
