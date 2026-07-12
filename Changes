@@ -2,6 +2,8 @@
  - require Imager 1.033 for the EXIF parser fix.
    CVE-2026-14454
 
+ - use the ..._NAME() API initializer for better error reporting
+
 Imager-File-HEIF 0.006 - 30 Apr 2026
 ======================
 
