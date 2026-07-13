@@ -138,7 +138,8 @@ SKIP:
 {
   # look for a non-HEVC encoder
   # FIXME: libheif 1.22, 1.23 won't decode the avc it created
-  # I suspect due to size issues, but skip for not
+  # I suspect due to size issues, but skip for now
+  # https://github.com/tonycoz/imager-file-heif/issues/7
   my ($enc) = grep $_->compression !~ /^(avc|hevc)$/
     && Imager::File::HEIF->have_decoder_for($_->compression),
     Imager::File::HEIF->encoders;
