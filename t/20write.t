@@ -198,6 +198,29 @@ SKIP:
   like($cmp->errstr, qr/no encoder named '.*' found with compression '.*'/,
        "check message");
 }
+SKIP:
+{
+  # https://github.com/tonycoz/imager-file-heif/issues/7
+  # https://github.com/strukturag/libheif/issues/1866
+  # fixed in libheif 1.23.3
+  eval { Imager::File::HEIF->have_encoder_for("avc") }
+    or skip "No AVC encodef", 1;
+  eval { Imager::File::HEIF->have_decoder_for("avc") }
+    or skip "No AVC decoder", 1;
+
+  my $cmp = test_image();
+  my $data;
+  ok($cmp->write(data => \$data, type => "heif",
+                 heif_compression => "avc"),
+     "write using avc")
+    or diag "avc write" . $cmp->errstr;
+  my $res = Imager->new;
+  ok($res->read(data => \$data, type => "heif"),
+     "read back avc encoded")
+    or skip "failed to read back avc", 1;
+
+  is_image_similar($res, $cmp, 10_000_000, "check image match");
+}
 {
   # write with an undefined compression
   my $cmp = test_image;
