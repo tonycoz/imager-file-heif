@@ -136,31 +136,20 @@ jobs:
             [ -x $INSTALL_PATH/bin/heif-dec ] && heif-dec --list-decoders || true
             [ -x $INSTALL_PATH/bin/heif-convert ] && heif-convert --list-decoders || true
 
-      - name: local-lib environment
-        run: |
-            perl -Mlocal::lib | grep -v '^PATH' >source.sh
-            . source.sh
-            for name in $(sed -e 's/=.*//' <source.sh) ; do
-               echo "$name=${!name}" >>$GITHUB_ENV
-            done
-            echo "$PERL_LOCAL_LIB_ROOT/bin" >>$GITHUB_PATH
-
-      - name: imager prep
-        run: |
-            echo IMAGER_RELEASE=$(curl -sS 'https://fastapi.metacpan.org/v1/release/Imager' | jq -r '.["version"]') >>$GITHUB_ENV
-            echo PERL_VERSION=$(perl -e 'print $^V') >>$GITHUB_ENV
-
-      - name: cache imager
-        id: cache-imager
-        uses: actions/cache@v5
+      - name: Set up perl
+        uses: shogo82148/actions-setup-perl@v1.41.1
         with:
-          path: ${{ env.PERL_LOCAL_LIB_ROOT }}
-          key: imager-${{ env.IMAGER_RELEASE }}-${{ env.PERL_VERSION }}-v1
-
-      - name: install Imager
-        if: steps.cache-imager.outputs.cache-hit != 'true'
-        run: |
-            cpan Imager
+          perl-version: '5'
+          multi-thread: true
+          install-modules:
+            ExtUtils::MakeMaker
+            Imager
+            Perl::OSType
+            Pod::Spell
+            Scalar::Util
+            Test::Pod
+            Test::Pod::Coverage
+            version
       - name: perl version
         run: |
             perl -v
