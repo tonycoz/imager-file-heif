@@ -1,3 +1,7 @@
+ - re-add AVC testing, marked as TODO for the broken versions of
+   libheif, 1.22.0 - 1.23.2
+   https://github.com/tonycoz/imager-file-heif/issues/7
+
 Imager-File-HEIF 0.007 - 13 Jun 2026
 ======================
 
