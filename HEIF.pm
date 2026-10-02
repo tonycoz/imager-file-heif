@@ -279,7 +279,7 @@ C<libheif>, C<libde265> and C<libx265> and their development files.
 
 Imager::File::HEIF requires at least version 1.11.0 of C<libheif>, but
 in general you want the very latest version you can get.
-Imager::File::HEIF has been tested up to version 1.21.2 of C<libheif>.
+Imager::File::HEIF has been tested up to version 1.23.5 of C<libheif>.
 
 1.14 through 1.16 need C<LIBDE265> support installed as part of the
 library, not as a plugin.
