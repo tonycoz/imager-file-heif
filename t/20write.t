@@ -215,9 +215,15 @@ SKIP:
      "write using avc")
     or diag "avc write" . $cmp->errstr;
   my $res = Imager->new;
-  ok($res->read(data => \$data, type => "heif"),
-     "read back avc encoded")
-    or skip "failed to read back avc", 1;
+  {
+    # I don't expect it to be fixed, but I this
+    # will check success/failure and complain if I get it wrong
+    local $TODO = "libheif $ver bug"
+      if $over >= v1.22.0 && $over < 1.23.3;
+    ok($res->read(data => \$data, type => "heif"),
+       "read back avc encoded")
+      or skip "failed to read back avc", 1;
+  }
 
   is_image_similar($res, $cmp, 10_000_000, "check image match");
 }
